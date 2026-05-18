@@ -4,7 +4,7 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3001/a
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 8000
+  timeout: 15000
 });
 
 export async function fetchWorkspace() {
@@ -23,7 +23,9 @@ export async function clearChatSession(sessionId) {
 }
 
 export async function sendChatMessage(payload) {
-  const { data } = await api.post("/chat/messages", payload);
+  const { data } = await api.post("/chat/messages", payload, {
+    timeout: 70000
+  });
   return data;
 }
 
@@ -83,11 +85,35 @@ export async function saveRuntimeSettings(payload) {
 }
 
 export async function detectCurrentModel(payload) {
-  const { data } = await api.post("/models/current/detect", payload);
+  const { data } = await api.post("/models/current/detect", payload, {
+    timeout: 30000
+  });
   return data;
 }
 
 export async function testRuntimeSettings(payload) {
-  const { data } = await api.post("/models/test", payload);
+  const { data } = await api.post("/models/test", payload, {
+    timeout: 30000
+  });
   return data;
+}
+
+export function subscribeRuntimeSettings(onMessage, onError) {
+  const source = new EventSource(`${apiBaseUrl}/models/current/stream`);
+
+  source.onmessage = (event) => {
+    try {
+      onMessage?.(JSON.parse(event.data));
+    } catch (error) {
+      onError?.(error);
+    }
+  };
+
+  source.onerror = (error) => {
+    onError?.(error);
+  };
+
+  return () => {
+    source.close();
+  };
 }

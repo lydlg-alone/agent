@@ -1,5 +1,36 @@
 import { getDb } from "../config/database.js";
 import { createId } from "../utils/id.js";
+import { readApiConfigFile } from "./apiConfigFileService.js";
+
+function buildMaskedKey(apiKey) {
+  const normalized = String(apiKey || "").trim();
+  return normalized ? `${normalized.slice(0, 3)}***` : "";
+}
+
+function buildRuntimeModelConfig(fileConfig) {
+  const provider = String(fileConfig?.provider || "").trim();
+  const modelId = String(fileConfig?.modelId || "").trim();
+  const baseUrl = String(fileConfig?.baseUrl || "").trim();
+  const apiKey = String(fileConfig?.apiKey || "").trim();
+
+  if (!provider || !modelId || !baseUrl) {
+    return null;
+  }
+
+  return {
+    id: "runtime_file_config",
+    name: `${provider} ${modelId}`,
+    provider,
+    baseUrl,
+    apiKeyMasked: buildMaskedKey(apiKey),
+    modelId,
+    contextLength: 8192,
+    temperature: 0.7,
+    streamEnabled: true,
+    isDefault: true,
+    createdAt: fileConfig?.updatedAt || ""
+  };
+}
 
 export function listModels() {
   const db = getDb();
@@ -7,6 +38,11 @@ export function listModels() {
 }
 
 export function getCurrentModelConfig() {
+  const runtimeModel = buildRuntimeModelConfig(readApiConfigFile());
+  if (runtimeModel) {
+    return runtimeModel;
+  }
+
   const db = getDb();
   const model = db
     .prepare(
@@ -68,6 +104,22 @@ export function createModel(payload) {
   ).run(model);
 
   return model;
+}
+
+export function clearInternalApiConfig() {
+  const db = getDb();
+
+  db.prepare(
+    `DELETE FROM app_settings
+     WHERE key IN ('api_key', 'base_url', 'system_prompt', 'provider_hint', 'model_id_hint')`
+  ).run();
+
+  db.prepare(
+    `UPDATE model_configs
+     SET base_url = '',
+         api_key_masked = ''
+     WHERE is_default = 1`
+  ).run();
 }
 
 export function upsertDefaultModelConfig(payload) {

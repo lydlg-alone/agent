@@ -1,10 +1,19 @@
-import { getSettings, setSetting } from "./appSettingsService.js";
-import { getCurrentModelConfig, upsertDefaultModelConfig } from "./modelConfigService.js";
-
-const RUNTIME_KEYS = ["api_key", "base_url", "system_prompt", "provider_hint", "model_id_hint"];
+import axios from "axios";
+import {
+  getApiConfigDirectoryPath,
+  getApiConfigFilePath,
+  readApiConfigFile,
+  subscribeApiConfigChanges,
+  writeApiConfigFile
+} from "./apiConfigFileService.js";
+import { clearInternalApiConfig, getCurrentModelConfig } from "./modelConfigService.js";
 
 function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function buildApiUrl(baseUrl, path) {
+  return `${normalizeBaseUrl(baseUrl)}/${String(path || "").replace(/^\/+/, "")}`;
 }
 
 function inferProvider(baseUrl, providerHint = "") {
@@ -14,19 +23,15 @@ function inferProvider(baseUrl, providerHint = "") {
   if (hint) {
     return hint;
   }
-
   if (url.includes("deepseek")) {
     return "DeepSeek";
   }
-
   if (url.includes("dashscope") || url.includes("qwen")) {
     return "Qwen";
   }
-
   if (url.includes("openai")) {
     return "OpenAI";
   }
-
   if (url.includes("ollama")) {
     return "Ollama";
   }
@@ -45,15 +50,12 @@ function inferModelId({ baseUrl, provider, modelId }) {
   if (providerName.includes("deepseek") || url.includes("deepseek")) {
     return "deepseek-chat";
   }
-
   if (providerName.includes("qwen") || url.includes("dashscope")) {
     return "qwen-plus";
   }
-
   if (providerName.includes("openai") || url.includes("openai")) {
     return "gpt-4o-mini";
   }
-
   if (providerName.includes("ollama") || url.includes("ollama")) {
     return "llama3.1";
   }
@@ -61,98 +63,202 @@ function inferModelId({ baseUrl, provider, modelId }) {
   return "custom-chat";
 }
 
-function inferModelName(provider, modelId) {
-  return `${provider} ${modelId}`;
+function maskApiKey(apiKey) {
+  const normalized = String(apiKey || "").trim();
+  return normalized ? `${normalized.slice(0, 3)}***` : "";
 }
 
-export function getRuntimeSettings() {
-  const settings = getSettings(RUNTIME_KEYS);
+async function fetchRemoteModels({ baseUrl, apiKey }) {
+  const response = await axios.get(buildApiUrl(baseUrl, "/models"), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    timeout: 15000
+  });
+
+  return Array.isArray(response.data?.data) ? response.data.data : [];
+}
+
+function pickRemoteModel(models, preferredModelId = "") {
+  const preferred = String(preferredModelId || "").trim().toLowerCase();
+
+  if (preferred) {
+    const matched = models.find((item) => String(item?.id || "").toLowerCase() === preferred);
+    if (matched?.id) {
+      return matched.id;
+    }
+  }
+
+  const firstAvailable = models.find((item) => typeof item?.id === "string" && item.id.trim());
+  return firstAvailable?.id || "";
+}
+
+function getStoredRuntimeValues() {
+  const fileConfig = readApiConfigFile();
   const currentModel = getCurrentModelConfig();
 
   return {
-    provider: settings.provider_hint || currentModel?.provider || "",
-    baseUrl: settings.base_url || currentModel?.baseUrl || "",
-    apiKey: "",
-    apiKeyMasked: settings.api_key ? `${settings.api_key.slice(0, 3)}***` : currentModel?.apiKeyMasked || "",
-    hasApiKey: Boolean(settings.api_key),
-    systemPrompt: settings.system_prompt || "",
-    modelId: settings.model_id_hint || currentModel?.modelId || "",
+    provider: String(fileConfig?.provider || currentModel?.provider || "").trim(),
+    baseUrl: String(fileConfig?.baseUrl || currentModel?.baseUrl || "").trim(),
+    apiKey: String(fileConfig?.apiKey || "").trim(),
+    systemPrompt: String(fileConfig?.systemPrompt || "").trim(),
+    modelId: String(fileConfig?.modelId || currentModel?.modelId || "").trim(),
+    updatedAt: String(fileConfig?.updatedAt || currentModel?.createdAt || "").trim(),
     currentModel
   };
 }
 
-export function detectCurrentModel(payload = {}) {
-  const current = getRuntimeSettings();
+export function getRuntimeCredentials() {
+  return getStoredRuntimeValues();
+}
+
+export function getRuntimeSettings() {
+  const runtime = getStoredRuntimeValues();
+
+  return {
+    provider: runtime.provider,
+    baseUrl: runtime.baseUrl,
+    apiKey: "",
+    apiKeyMasked: maskApiKey(runtime.apiKey),
+    hasApiKey: Boolean(runtime.apiKey),
+    systemPrompt: runtime.systemPrompt,
+    modelId: runtime.modelId,
+    currentModel: runtime.currentModel,
+    storageDirectory: getApiConfigDirectoryPath(),
+    storagePath: getApiConfigFilePath()
+  };
+}
+
+function buildRuntimeSettingsPayload() {
+  return {
+    ...buildRuntimeSettingsPayload()
+  };
+}
+
+export function registerRuntimeSettingsStream(res) {
+  const sendPayload = () => {
+    res.write(`data: ${JSON.stringify(buildRuntimeSettingsPayload())}\n\n`);
+  };
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const unsubscribe = subscribeApiConfigChanges(() => {
+    sendPayload();
+  });
+
+  sendPayload();
+
+  const heartbeat = setInterval(() => {
+    res.write(": keep-alive\n\n");
+  }, 25000);
+
+  return () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  };
+}
+
+export async function detectCurrentModel(payload = {}) {
+  const current = getStoredRuntimeValues();
   const baseUrl = normalizeBaseUrl(payload.baseUrl || current.baseUrl);
+  const apiKey = String(payload.apiKey || current.apiKey || "").trim();
   const provider = inferProvider(baseUrl, payload.provider || current.provider);
-  const model = inferModelId({
+  let model = inferModelId({
     baseUrl,
     provider,
     modelId: payload.modelId || current.modelId
   });
 
+  if (baseUrl && apiKey) {
+    try {
+      const models = await fetchRemoteModels({ baseUrl, apiKey });
+      const remoteModel = pickRemoteModel(models, payload.modelId || current.modelId);
+      if (remoteModel) {
+        model = remoteModel;
+      }
+      return {
+        provider,
+        model,
+        message: remoteModel ? "已从远程模型列表自动识别当前模型。" : "已根据当前配置推断模型。"
+      };
+    } catch (error) {
+      return {
+        provider,
+        model,
+        message: `模型列表读取失败，已回退为本地推断：${error.response?.data?.error?.message || error.message}`
+      };
+    }
+  }
+
   return {
     provider,
     model,
-    message: "已根据当前配置自动识别模型。"
+    message: "当前未提供完整凭据，已根据配置推断模型。"
   };
 }
 
-export function saveRuntimeSettings(payload = {}) {
-  const normalizedBaseUrl = normalizeBaseUrl(payload.baseUrl);
-  const provider = inferProvider(normalizedBaseUrl, payload.provider);
-  const detected = detectCurrentModel({
+export async function saveRuntimeSettings(payload = {}) {
+  const existing = getStoredRuntimeValues();
+  const normalizedBaseUrl = normalizeBaseUrl(payload.baseUrl || existing.baseUrl);
+  const provider = inferProvider(normalizedBaseUrl, payload.provider || existing.provider);
+  const nextApiKey = String(payload.apiKey || "").trim() || existing.apiKey;
+  const systemPrompt = String(payload.systemPrompt ?? existing.systemPrompt ?? "").trim();
+  const detected = await detectCurrentModel({
     baseUrl: normalizedBaseUrl,
+    apiKey: nextApiKey,
     provider,
-    modelId: payload.modelId
+    modelId: payload.modelId || existing.modelId
   });
 
-  if (payload.apiKey !== undefined) {
-    setSetting("api_key", payload.apiKey);
+  writeApiConfigFile({
+    provider,
+    baseUrl: normalizedBaseUrl,
+    apiKey: nextApiKey,
+    systemPrompt,
+    modelId: detected.model,
+    updatedAt: new Date().toISOString()
+  });
+
+  clearInternalApiConfig();
+
+  return {
+    message: `运行配置已保存到 ${getApiConfigDirectoryPath()}`,
+    settings: getRuntimeSettings(),
+    currentModel: getCurrentModelConfig()
+  };
+}
+
+export async function testRuntimeSettings(payload = {}) {
+  const current = getStoredRuntimeValues();
+  const normalizedBaseUrl = normalizeBaseUrl(payload.baseUrl || current.baseUrl);
+  const apiKey = String(payload.apiKey || "").trim() || current.apiKey;
+  const provider = inferProvider(normalizedBaseUrl, payload.provider || current.provider);
+
+  if (!normalizedBaseUrl || !apiKey) {
+    return {
+      success: false,
+      provider,
+      model: String(payload.modelId || current.modelId || "").trim(),
+      checkedAt: new Date().toISOString(),
+      latencyMs: 0,
+      message: "缺少 API Base URL 或 API Key，无法完成校验。"
+    };
   }
 
-  setSetting("base_url", normalizedBaseUrl);
-  setSetting("system_prompt", payload.systemPrompt || "");
-  setSetting("provider_hint", provider);
-  setSetting("model_id_hint", detected.model);
-
-  const current = upsertDefaultModelConfig({
-    name: inferModelName(provider, detected.model),
-    provider,
-    baseUrl: normalizedBaseUrl,
-    apiKey: payload.apiKey,
-    apiKeyMasked: getRuntimeSettings().apiKeyMasked,
-    modelId: detected.model,
-    contextLength: 8192,
-    temperature: 0.7,
-    streamEnabled: true
-  });
+  const startedAt = Date.now();
+  const models = await fetchRemoteModels({ baseUrl: normalizedBaseUrl, apiKey });
+  const detectedModel = pickRemoteModel(models, payload.modelId || current.modelId);
 
   return {
-    message: "运行配置已保存。",
-    settings: getRuntimeSettings(),
-    currentModel: current
-  };
-}
-
-export function testRuntimeSettings(payload = {}) {
-  const normalizedBaseUrl = normalizeBaseUrl(payload.baseUrl);
-  const provider = inferProvider(normalizedBaseUrl, payload.provider);
-  const detected = detectCurrentModel({
-    baseUrl: normalizedBaseUrl,
+    success: true,
     provider,
-    modelId: payload.modelId
-  });
-
-  return {
-    success: Boolean(normalizedBaseUrl && payload.apiKey),
-    provider,
-    model: detected.model,
+    model: detectedModel,
     checkedAt: new Date().toISOString(),
-    latencyMs: 320,
-    message:
-      normalizedBaseUrl && payload.apiKey
-        ? "已完成本地连通性模拟校验。"
-        : "缺少 API Base URL 或 API Key，无法完成校验。"
+    latencyMs: Date.now() - startedAt,
+    message: `连接成功，检测到 ${models.length} 个可用模型。`
   };
 }

@@ -1,10 +1,14 @@
-<template>
+﻿<template>
   <div class="study-shell">
     <nav class="side-nav">
-      <div class="brand-mark">AI</div>
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" class="nav-icon nav-icon--brand">
+          <path :d="brandIconPath" />
+        </svg>
+      </div>
 
       <button
-        v-for="item in navItems"
+        v-for="item in topNavItems"
         :key="item.key"
         type="button"
         class="nav-button"
@@ -12,34 +16,52 @@
         :title="item.label"
         @click="currentPage = item.key"
       >
-        <span>{{ item.short }}</span>
+        <svg viewBox="0 0 24 24" class="nav-icon">
+          <path :d="item.iconPath" />
+        </svg>
+      </button>
+
+      <div class="side-nav__spacer"></div>
+
+      <button
+        type="button"
+        class="nav-button"
+        :class="{ 'nav-button--active': currentPage === settingsNavItem.key }"
+        :title="settingsNavItem.label"
+        @click="currentPage = settingsNavItem.key"
+      >
+        <svg viewBox="0 0 24 24" class="nav-icon">
+          <path :d="settingsNavItem.iconPath" />
+        </svg>
       </button>
     </nav>
 
-    <main class="workspace-main">
-      <section v-show="currentPage === 'chat'" class="page-view page-view--chat">
+    <div class="workspace-main">
+      <section class="page-view page-view--chat" :class="{ active: currentPage === 'chat' }">
         <header class="top-bar">
-          <div>
-            <div class="online-row">
-              <span class="online-dot"></span>
-              <strong>{{ activeAgent?.name || "默认学习助手" }}</strong>
+          <div class="top-bar__title">
+            <span class="online-dot"></span>
+            <div>
+              <h2>{{ chatTitleText }}</h2>
+              <p>{{ chatSubtitleText }}</p>
             </div>
-            <p class="sub-copy">{{ currentModel?.name || "未配置模型" }}</p>
           </div>
 
-          <div class="top-actions">
-            <span class="model-pill">{{ currentModel?.modelId || "自动识别" }}</span>
-            <button type="button" class="icon-button" :disabled="loading.chat" @click="handleNewSession">
-              新会话
-            </button>
-            <button type="button" class="icon-button" :disabled="loading.chat" @click="handleClearChat">
-              清空聊天
+          <div class="top-bar__actions">
+            <span class="model-pill">{{ currentModelPillText }}</span>
+            <button type="button" class="clear-button" :disabled="loading.chat" title="娓呯┖鑱婂ぉ" @click="handleClearChat">
+              <svg viewBox="0 0 24 24" class="action-icon">
+                <path
+                  d="M9 3.75h6a.75.75 0 0 1 .75.75v1.5h3a.75.75 0 0 1 0 1.5h-.53l-.84 10.06A2.25 2.25 0 0 1 15.14 19.5H8.86a2.25 2.25 0 0 1-2.24-1.94L5.78 7.5H5.25a.75.75 0 0 1 0-1.5h3V4.5A.75.75 0 0 1 9 3.75Zm.75 2.25h4.5v-.75h-4.5V6Zm-.5 3.75a.75.75 0 0 0-1.5 0v5.25a.75.75 0 0 0 1.5 0V9.75Zm4 0a.75.75 0 0 0-1.5 0v5.25a.75.75 0 0 0 1.5 0V9.75Zm2.5-.75a.75.75 0 0 0-.75.75v5.25a.75.75 0 0 0 1.5 0V9.75a.75.75 0 0 0-.75-.75Z"
+                />
+              </svg>
             </button>
           </div>
         </header>
 
-        <div class="chat-grid">
-          <section class="chat-column">
+        <div class="chat-layout">
+          <div class="chat-column">
+            <div class="chat-scroll-region scrollbar-thin">
             <div class="quick-prompts">
               <button
                 v-for="prompt in quickPrompts"
@@ -53,190 +75,183 @@
             </div>
 
             <div class="message-list">
-              <article
-                v-for="message in messages"
-                :key="message.id"
-                class="message-row"
-                :class="message.role === 'user' ? 'message-row--user' : 'message-row--assistant'"
-              >
-                <div class="message-card">
-                  <div class="message-meta">
-                    <strong>{{ message.role === "user" ? "你" : activeAgent?.name || "学习助手" }}</strong>
-                    <span>{{ formatMessageTime(message.createdAt) }}</span>
+              <template v-if="messages.length">
+                <article
+                  v-for="message in messages"
+                  :key="message.id"
+                  class="message-row"
+                  :class="message.role === 'user' ? 'message-row--user' : 'message-row--assistant'"
+                >
+                  <div class="message-thread" :class="{ 'message-thread--user': message.role === 'user' }">
+                    <div class="message-avatar" :class="message.role === 'user' ? 'message-avatar--user' : 'message-avatar--assistant'">
+                      {{ message.role === "user" ? "我" : "A" }}
+                    </div>
+
+                    <div class="message-thread__body">
+                      <div
+                        class="message-bubble markdown-content"
+                        :class="message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'"
+                        v-html="renderMessageContent(message.content)"
+                      ></div>
+
+                      <div class="message-time" :class="{ 'message-time--user': message.role === 'user' }">
+                        {{ formatMessageTime(message.createdAt) }}
+                        <template v-if="message.source"> 路 {{ message.source }}</template>
+                      </div>
+                    </div>
                   </div>
+                </article>
 
-                  <p class="message-content">{{ message.content }}</p>
-
-                  <div v-if="message.attachments?.length" class="attachment-chips">
-                    <span v-for="attachment in message.attachments" :key="attachment.id" class="attachment-chip">
-                      {{ attachment.name }}
-                    </span>
-                  </div>
-
-                  <div v-if="message.role === 'assistant' && message.agentStatuses?.length" class="timeline-list">
-                    <div v-for="agent in message.agentStatuses" :key="agent.agentId" class="timeline-item">
-                      <span class="timeline-dot" :class="`timeline-dot--${agent.state}`"></span>
-                      <div>
-                        <strong>{{ agent.name }}</strong>
-                        <p>{{ agent.summary }}</p>
+                <div v-if="loading.send" class="message-row message-row--assistant">
+                  <div class="message-thread">
+                    <div class="message-avatar message-avatar--assistant">A</div>
+                    <div class="message-thread__body">
+                      <div class="message-bubble chat-bubble-assistant typing-bubble">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-text">{{ activeAgent?.name || "瀛︿範鍔╂墜" }} 姝ｅ湪鏁寸悊绛旀</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              </article>
+              </template>
 
-              <div v-if="!messages.length && !loading.workspace" class="empty-block">
-                暂无消息，输入学习任务或上传资料开始。
-              </div>
+              <div v-else-if="!loading.workspace" class="empty-block">
+                暂无消息，输入学习任务或上传资料开始。              </div>
+            </div>
+
             </div>
 
             <footer class="composer-panel">
-              <div v-if="pendingAttachments.length" class="attachment-chips">
-                <span class="attachment-label">待发送附件</span>
-                <span v-for="attachment in pendingAttachments" :key="attachment.id" class="attachment-chip">
-                  {{ attachment.name }}
-                </span>
-              </div>
+              <div class="composer-inner">
+                <div class="composer-box">
+                  <button type="button" class="composer-attach" :disabled="loading.upload" title="瀵煎叆鐭ヨ瘑鏂囨。" @click="triggerChatFilePicker">
+                    <svg viewBox="0 0 24 24" class="composer-icon">
+                      <path
+                        d="M12 3.75a.75.75 0 0 1 .75.75v8.69l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 0 1 1.06-1.06l2.72 2.72V4.5a.75.75 0 0 1 .75-.75Zm-6 12a.75.75 0 0 1 .75.75v.75c0 .41.34.75.75.75h9a.75.75 0 0 0 .75-.75v-.75a.75.75 0 0 1 1.5 0v.75A2.25 2.25 0 0 1 17.25 19.5h-9A2.25 2.25 0 0 1 6 17.25v-.75a.75.75 0 0 1 .75-.75Z"
+                      />
+                    </svg>
+                  </button>
 
-              <div class="composer-box">
-                <button type="button" class="composer-attach" :disabled="loading.upload" @click="triggerChatFilePicker">
-                  导入资料
-                </button>
-                <textarea
-                  ref="composerRef"
-                  v-model="composerText"
-                  class="composer-input"
-                  rows="1"
-                  placeholder="输入你的学习任务，例如：基于资料生成两周复习计划，并给出每日任务。"
-                  @input="resizeComposer"
-                  @keydown.enter.exact.prevent="handleSendMessage"
-                />
-                <button type="button" class="send-button" :disabled="loading.send" @click="handleSendMessage">
-                  {{ loading.send ? "发送中" : "发送" }}
-                </button>
-              </div>
+                  <textarea
+                    ref="composerRef"
+                    v-model="composerText"
+                    class="composer-input"
+                    rows="1"
+                    placeholder="输入你的学习任务，例如：基于知识库生成 20 道测试题，并附上答案解析。"
+                    @input="resizeComposer"
+                  />
 
-              <div class="hint-row">
-                <span>Enter 发送，Shift + Enter 换行</span>
-                <span>{{ runtimeStatusText }}</span>
+                  <button type="button" class="send-button" :disabled="loading.send" @click="handleSendMessage">
+                    {{ loading.send ? "发送中" : "发送" }}
+                  </button>
+                </div>
+
+                <div class="hint-row">
+                  <span>Enter 鍙戦€侊紝Shift + Enter 鎹㈣</span>
+                  <span>{{ chatStatusText }}</span>
+                </div>
+
+                <div v-if="pendingAttachments.length" class="pending-files">
+                  <span class="pending-files__label">待发送附件</span>
+                  <span v-for="attachment in pendingAttachments" :key="attachment.id" class="attachment-chip">
+                    {{ attachment.name }}
+                  </span>
+                </div>
               </div>
             </footer>
-          </section>
+          </div>
 
-          <aside class="status-column">
-            <section class="surface-card">
-              <div class="card-head">
-                <h3>协同状态</h3>
-                <span>{{ activeAgent?.name || "未激活" }}</span>
-              </div>
-              <div class="status-list">
-                <article v-for="agent in displayedAgentStatuses" :key="agent.agentId || agent.role" class="status-item">
-                  <div class="status-item__head">
-                    <strong>{{ agent.name }}</strong>
-                    <span class="status-badge" :class="`status-badge--${agent.state}`">
-                      {{ statusLabels[agent.state] || agent.state }}
-                    </span>
+          <aside class="status-panel">
+            <div class="status-panel__header">
+              <h3>协同状态</h3>
+              <p>展示模型、知识库和当前智能体状态。</p>
+            </div>
+
+            <div class="status-panel__body scrollbar-thin">
+              <article v-for="card in statusCards" :key="card.title" class="surface-card status-card">
+                <div class="status-card__head">
+                  <div class="status-card__icon" :class="card.colorClass">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="card.iconPath" />
+                    </svg>
                   </div>
-                  <p>{{ agent.summary }}</p>
-                </article>
-              </div>
-            </section>
-
-            <section class="surface-card">
-              <div class="card-head">
-                <h3>会话附件</h3>
-                <span>{{ sessionAttachments.length }} 个</span>
-              </div>
-              <div v-if="sessionAttachments.length" class="status-list">
-                <article v-for="attachment in sessionAttachments" :key="attachment.id" class="mini-item">
-                  <strong>{{ attachment.name }}</strong>
-                  <span>{{ formatSize(attachment.sizeBytes) }}</span>
-                </article>
-              </div>
-              <p v-else class="empty-copy">当前会话还没有附件。</p>
-            </section>
-
-            <section class="surface-card">
-              <div class="card-head">
-                <h3>当前状态</h3>
-                <span>实时</span>
-              </div>
-              <div class="metric-list">
-                <div class="metric-row">
-                  <span>当前会话</span>
-                  <strong>{{ activeSession?.title || "新建对话" }}</strong>
+                  <h4>{{ card.title }}</h4>
                 </div>
-                <div class="metric-row">
-                  <span>知识文档</span>
-                  <strong>{{ knowledgeStats.totalCount }}</strong>
-                </div>
-                <div class="metric-row">
-                  <span>资料大小</span>
-                  <strong>{{ knowledgeStats.totalSize }}</strong>
-                </div>
-              </div>
-            </section>
+                <p>{{ card.content }}</p>
+              </article>
+            </div>
           </aside>
         </div>
       </section>
 
-      <section v-show="currentPage === 'kb'" class="page-view">
+      <section class="page-view page-view--standard" :class="{ active: currentPage === 'kb' }">
         <div class="page-header">
           <div>
             <h1>知识库中心</h1>
-            <p>导入后的资料会进入默认知识库，并可被聊天页直接引用。</p>
+            <p>导入学习资料后，聊天页会把这些文档元信息带给模型。</p>
           </div>
+
           <div class="page-actions">
             <button type="button" class="primary-button" :disabled="loading.importing" @click="triggerKnowledgeFilePicker">
-              导入本地文档
+              瀵煎叆鏈湴鏂囨。
             </button>
             <button type="button" class="secondary-button" :disabled="loading.importing" @click="handleClearKnowledge">
-              清空知识库
-            </button>
+              清空知识库            </button>
           </div>
         </div>
 
         <div class="stats-grid">
-          <article class="surface-card metric-card">
-            <span>文档总数</span>
+          <div class="surface-card stats-card">
+            <p>鏂囨。鎬绘暟</p>
             <strong>{{ knowledgeStats.totalCount }}</strong>
-          </article>
-          <article class="surface-card metric-card">
-            <span>累计大小</span>
+          </div>
+          <div class="surface-card stats-card">
+            <p>绱澶у皬</p>
             <strong>{{ knowledgeStats.totalSize }}</strong>
-          </article>
-          <article class="surface-card metric-card">
-            <span>最近导入</span>
-            <strong class="metric-card__title">{{ knowledgeStats.latestName }}</strong>
-          </article>
+          </div>
+          <div class="surface-card stats-card">
+            <p>最近导入</p>
+            <strong class="stats-card__truncate">{{ knowledgeStats.latestName }}</strong>
+          </div>
         </div>
 
         <div class="surface-card toolbar-card">
-          <input
-            v-model.trim="knowledgeSearch"
-            type="text"
-            class="search-input"
-            placeholder="搜索文档名称"
-          />
-          <span class="toolbar-copy">{{ knowledgeSummaryText }}</span>
+          <div class="toolbar-search">
+            <span class="toolbar-search__icon">
+              <svg viewBox="0 0 24 24" class="search-icon">
+                <path
+                  d="M10.5 4.5a6 6 0 1 1 0 12a6 6 0 0 1 0-12Zm0-1.5a7.5 7.5 0 1 0 4.73 13.32l3.22 3.21a.75.75 0 1 0 1.06-1.06l-3.21-3.22A7.5 7.5 0 0 0 10.5 3Z"
+                />
+              </svg>
+            </span>
+            <input v-model.trim="knowledgeSearch" type="text" class="search-input" placeholder="鎼滅储鏂囨。鍚嶇О" />
+          </div>
+          <div class="toolbar-summary">{{ knowledgeSummaryText }}</div>
         </div>
 
-        <div v-if="!filteredKnowledgeDocuments.length" class="surface-card empty-card">
-          <h3>还没有可用资料</h3>
+        <div v-if="!filteredKnowledgeDocuments.length" class="surface-card kb-empty">
+          <div class="kb-empty__icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="folderOpenIconPath" />
+            </svg>
+          </div>
+          <h3>还没有学习资料</h3>
           <p>支持导入 PDF、Word、Markdown、TXT、PPT、CSV 等常见格式。</p>
         </div>
 
         <div v-else class="document-grid">
           <article v-for="doc in filteredKnowledgeDocuments" :key="doc.id" class="surface-card document-card">
-            <div class="document-card__head">
-              <span class="doc-badge">{{ doc.sourceType.toUpperCase() }}</span>
-              <button type="button" class="link-button" @click="handleDeleteKnowledgeDocument(doc.id)">
-                删除
+            <div class="document-card__top">
+              <div class="document-type-badge">{{ doc.sourceType.toUpperCase() }}</div>
+              <button type="button" class="document-delete" title="鍒犻櫎鏂囨。" @click="handleDeleteKnowledgeDocument(doc.id)">
+                鍒犻櫎
               </button>
             </div>
             <h3>{{ doc.name }}</h3>
             <p>{{ doc.summary || "已登记到知识库，可在聊天页直接引用。" }}</p>
-            <div class="document-meta">
+            <div class="document-card__meta">
               <span>{{ doc.knowledgeBaseName || "默认知识库" }}</span>
               <span>{{ formatSize(doc.sizeBytes) }}</span>
               <span>{{ formatDate(doc.createdAt) }}</span>
@@ -245,123 +260,116 @@
         </div>
       </section>
 
-      <section v-show="currentPage === 'market'" class="page-view">
-        <div class="page-header">
-          <div>
-            <h1>智能体市场</h1>
-            <p>切换不同学习角色后，聊天页会联动当前助手定位。</p>
-          </div>
-          <div class="page-actions page-actions--text">
-            当前激活：<strong>{{ activeAgent?.name || "默认学习助手" }}</strong>
-          </div>
-        </div>
+      <section class="page-view page-view--standard" :class="{ active: currentPage === 'settings' }">
+        <h1 class="settings-title">API 接入配置</h1>
+        <p class="settings-subtitle">如果填写 Base URL 和 API Key，聊天页会按 OpenAI 兼容格式请求 `chat/completions`。</p>
 
-        <div class="agent-grid">
-          <article
-            v-for="agent in marketAgents"
-            :key="agent.id"
-            class="surface-card agent-card"
-            :class="{ 'agent-card--active': activeAgent?.id === agent.id }"
-          >
-            <div class="agent-card__head">
-              <div class="agent-icon">{{ agent.role.slice(0, 1).toUpperCase() }}</div>
-              <span class="doc-badge">{{ agent.modelBinding }}</span>
-            </div>
-            <h3>{{ agent.name }}</h3>
-            <p>{{ agent.promptTemplate }}</p>
-            <div class="agent-foot">
-              <span>{{ agent.knowledgeScope }}</span>
-              <button
-                type="button"
-                class="primary-button primary-button--small"
-                :disabled="activeAgent?.id === agent.id"
-                @click="handleActivateAgent(agent.id)"
-              >
-                {{ activeAgent?.id === agent.id ? "已激活" : "切换到此角色" }}
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section v-show="currentPage === 'settings'" class="page-view">
-        <div class="page-header page-header--stacked">
-          <div>
-            <h1>API 接入配置</h1>
-            <p>填写 Base URL 与 API Key 后，系统会保存当前运行配置并自动识别模型。</p>
-          </div>
-        </div>
-
-        <div class="settings-shell">
-          <form class="surface-card settings-card" @submit.prevent="handleSaveSettings">
-            <label class="field-block">
-              <span>当前模型</span>
-              <div class="inline-field">
-                <input v-model="settings.modelId" type="text" class="text-input" readonly />
-                <button type="button" class="secondary-button" @click="handleDetectModel">读取模型</button>
+        <div class="surface-card settings-card">
+          <form class="settings-form" @submit.prevent="handleSaveSettings">
+            <div>
+              <label class="field-label">当前模型</label>
+              <div class="field-inline">
+                <input
+                  v-model="settings.modelId"
+                  type="text"
+                  readonly
+                  class="text-input text-input--readonly"
+                  placeholder="保存或测试连接后自动读取当前模型"
+                />
+                <button type="button" class="secondary-button secondary-button--wide" @click="handleDetectModel">读取模型</button>
               </div>
-            </label>
+              <p class="field-help">{{ settingsModelHelpText }}</p>
+            </div>
 
-            <label class="field-block">
-              <span>API Key</span>
+            <div>
+              <label class="field-label">API Key</label>
               <input
                 v-model="settings.apiKey"
                 type="password"
                 class="text-input"
                 :placeholder="settings.apiKeyMasked || 'sk-xxxxxxxxxxxxxxxx'"
               />
-            </label>
+            </div>
 
-            <label class="field-block">
-              <span>API Base URL</span>
+            <div>
+              <label class="field-label">API Base URL</label>
               <input v-model="settings.baseUrl" type="text" class="text-input" placeholder="https://api.example.com/v1" />
-            </label>
+            </div>
 
-            <label class="field-block">
-              <span>系统提示词</span>
+            <div>
+              <label class="field-label">系统提示词</label>
               <textarea
                 v-model="settings.systemPrompt"
-                rows="5"
+                rows="4"
                 class="text-input text-input--textarea"
-                placeholder="定义你的学习助手角色、答题风格和回答约束。"
-              />
-            </label>
+                placeholder="定义你的学习助手角色、回答风格和约束。"
+              ></textarea>
+            </div>
+
+            <div class="settings-info-grid">
+              <div class="surface-card settings-info-card">
+                <p class="settings-info-card__title">接口约定</p>
+                <p class="settings-info-card__content">
+                  `POST /api/chat/messages`<br>
+                  `GET /api/models/current`<br>
+                  `POST /api/models/current`<br>
+                  `POST /api/models/test`<br>
+                  `POST /api/knowledge/import`<br>
+                  `POST /api/agents/:id/activate`
+                </p>
+              </div>
+
+              <div class="surface-card settings-info-card">
+                <p class="settings-info-card__title">当前状态</p>
+                <p class="settings-info-card__content">{{ settingsRuntimeStatusText }}</p>
+                <p class="settings-info-card__path">{{ settingsStorageText }}</p>
+              </div>
+            </div>
 
             <div class="settings-actions">
-              <button type="submit" class="primary-button" :disabled="loading.settingsSave">保存配置</button>
-              <button type="button" class="secondary-button" :disabled="loading.settingsTest" @click="handleTestConnection">
+              <button type="submit" class="primary-button primary-button--stretch" :disabled="loading.settingsSave">保存配置</button>
+              <button type="button" class="secondary-button secondary-button--strong" :disabled="loading.settingsTest" @click="handleTestConnection">
                 测试连接
               </button>
             </div>
           </form>
-
-          <div class="settings-side">
-            <section class="surface-card info-card">
-              <h3>当前状态</h3>
-              <p>{{ runtimeStatusText }}</p>
-            </section>
-
-            <section class="surface-card info-card">
-              <h3>运行摘要</h3>
-              <div class="metric-list">
-                <div class="metric-row">
-                  <span>Provider</span>
-                  <strong>{{ settings.provider || currentModel?.provider || "未识别" }}</strong>
-                </div>
-                <div class="metric-row">
-                  <span>模型</span>
-                  <strong>{{ settings.modelId || currentModel?.modelId || "未识别" }}</strong>
-                </div>
-                <div class="metric-row">
-                  <span>API Key</span>
-                  <strong>{{ settings.apiKeyMasked || (settings.apiKey ? "已填写" : "未填写") }}</strong>
-                </div>
-              </div>
-            </section>
-          </div>
         </div>
       </section>
-    </main>
+
+      <section class="page-view page-view--standard" :class="{ active: currentPage === 'market' }">
+        <div class="page-header">
+          <div>
+            <h1>智能体市场</h1>
+            <p>可切换不同学习智能体，聊天页会联动当前角色。</p>
+          </div>
+          <div class="market-active-text">褰撳墠婵€娲伙細<span>{{ activeAgent?.name || "榛樿瀛︿範鍔╂墜" }}</span></div>
+        </div>
+
+        <div class="agent-grid">
+          <article v-for="agent in marketAgents" :key="agent.id" class="surface-card market-card" :class="{ 'market-card--active': activeAgent?.id === agent.id }">
+            <div class="market-card__top">
+              <div class="market-card__icon" :class="getAgentAccentClass(agent)">{{ getAgentDisplayLetter(agent) }}</div>
+              <span class="market-card__badge" :class="{ 'market-card__badge--active': activeAgent?.id === agent.id }">
+                {{ activeAgent?.id === agent.id ? "当前使用中" : "可切换" }}
+              </span>
+            </div>
+            <h4>{{ agent.name }}</h4>
+            <p class="market-card__subtitle">{{ getAgentTitle(agent) }}</p>
+            <p class="market-card__description">{{ getAgentDescription(agent) }}</p>
+            <p class="market-card__specialty">{{ getAgentSpecialty(agent) }}</p>
+            <button
+              type="button"
+              class="market-card__button"
+              :class="{ 'market-card__button--active': activeAgent?.id === agent.id }"
+              :disabled="activeAgent?.id === agent.id"
+              @click="handleActivateAgent(agent.id)"
+            >
+              {{ activeAgent?.id === agent.id ? "已激活" : "切换到该智能体" }}
+            </button>
+          </article>
+        </div>
+      </section>
+    </div>
 
     <input ref="chatFileInputRef" type="file" class="hidden-file-input" multiple @change="handleChatFileChange" />
     <input ref="knowledgeFileInputRef" type="file" class="hidden-file-input" multiple @change="handleKnowledgeFileChange" />
@@ -369,7 +377,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import {
   activateAgent,
@@ -386,15 +394,58 @@ import {
   importKnowledgeFiles,
   saveRuntimeSettings,
   sendChatMessage,
+  subscribeRuntimeSettings,
   testRuntimeSettings,
   uploadChatAttachment
 } from "@/services/api.js";
 
+const brandIconPath =
+  "M9.5 3.75c-2.35 0-4.25 1.9-4.25 4.25v1.03a3.25 3.25 0 0 0-.97 5.53A4.25 4.25 0 0 0 8.5 21h1.75A2 2 0 0 0 12 19.97A2 2 0 0 0 13.75 21h1.75a4.25 4.25 0 0 0 4.22-3.44a3.25 3.25 0 0 0-.97-5.53V8c0-2.35-1.9-4.25-4.25-4.25c-1.1 0-2.1.41-2.87 1.08A4.23 4.23 0 0 0 9.5 3.75ZM9 8.25c.41 0 .75.34.75.75v6a.75.75 0 0 1-1.5 0V9c0-.41.34-.75.75-.75Zm6 0c.41 0 .75.34.75.75v6a.75.75 0 0 1-1.5 0V9c0-.41.34-.75.75-.75ZM12 6.75c.41 0 .75.34.75.75v9a.75.75 0 0 1-1.5 0v-9c0-.41.34-.75.75-.75Z";
+
+const iconPaths = {
+  chat:
+    "M4.5 5.25A2.25 2.25 0 0 1 6.75 3h10.5a2.25 2.25 0 0 1 2.25 2.25v8.25a2.25 2.25 0 0 1-2.25 2.25H10.7l-3.98 3.1A.75.75 0 0 1 5.5 18.2v-2.45A2.25 2.25 0 0 1 3.75 13.5V5.25A.75.75 0 0 1 4.5 5.25Z",
+  book:
+    "M6 3.75A2.25 2.25 0 0 0 3.75 6v11.25c0 1.24 1.01 2.25 2.25 2.25h12a.75.75 0 0 0 .75-.75V6A2.25 2.25 0 0 0 16.5 3.75H6Zm1.5 2.25h7.5a.75.75 0 0 1 0 1.5H7.5a.75.75 0 0 1 0-1.5Zm0 3.75h7.5a.75.75 0 0 1 0 1.5H7.5a.75.75 0 0 1 0-1.5Z",
+  store:
+    "M4.37 4.5h15.26c.36 0 .67.26.74.62l.63 3.13a2.99 2.99 0 0 1-2.25 3.47v6.03a.75.75 0 0 1-.75.75H6a.75.75 0 0 1-.75-.75v-6.03A2.99 2.99 0 0 1 3 8.25l.63-3.13c.07-.36.38-.62.74-.62Zm2.38 7.5v5.25h10.5V12c-.4-.12-.78-.31-1.12-.56a3.72 3.72 0 0 1-4.13 0A3.72 3.72 0 0 1 7.87 12c-.34.25-.72.44-1.12.56Zm-1.88-6-.37 1.87a1.5 1.5 0 0 0 1.47 1.79c.76 0 1.39-.57 1.49-1.33l.3-2.33H4.87Zm4.4 0-.26 2.03a1.5 1.5 0 0 0 2.99 0L11.74 6H9.27Zm3.97 0 .26 2.03a1.5 1.5 0 0 0 2.99 0L16.23 6h-2.99Zm4.48 0-.3 2.33c.1.76.73 1.33 1.49 1.33a1.5 1.5 0 0 0 1.47-1.79L20.01 6h-2.29Z",
+  settings:
+    "M10.6 1.84a1 1 0 0 1 2.8 0l.23.87c.12.44.52.73.98.75c.52.02 1.03.12 1.51.3c.43.16.91.06 1.21-.27l.64-.68a1 1 0 0 1 2.42 1.4l-.45.78c-.23.4-.19.89.07 1.26c.3.42.53.89.68 1.39c.14.45.52.77.99.79l.97.04a1 1 0 0 1 .87 1.78l-.74.52c-.39.27-.56.75-.45 1.21c.06.25.09.51.09.77s-.03.52-.09.77c-.11.46.06.94.45 1.21l.74.52a1 1 0 0 1-.87 1.78l-.97.04c-.47.02-.85.34-.99.79c-.15.5-.38.97-.68 1.39c-.26.37-.3.86-.07 1.26l.45.78a1 1 0 0 1-1.62 1.18l-.64-.68c-.3-.33-.78-.43-1.21-.27c-.48.18-.99.28-1.51.3c-.46.02-.86.31-.98.75l-.23.87a1 1 0 0 1-2.8 0l-.23-.87c-.12-.44-.52-.73-.98-.75a5.6 5.6 0 0 1-1.51-.3c-.43-.16-.91-.06-1.21.27l-.64.68a1 1 0 0 1-1.62-1.18l.45-.78c.23-.4.19-.89-.07-1.26a5.58 5.58 0 0 1-.68-1.39a1.07 1.07 0 0 0-.99-.79l-.97-.04a1 1 0 0 1-.87-1.78l.74-.52c.39-.27.56-.75.45-1.21A3.4 3.4 0 0 1 5 12c0-.26.03-.52.09-.77c.11-.46-.06-.94-.45-1.21l-.74-.52a1 1 0 0 1 .87-1.78l.97-.04c.47-.02.85-.34.99-.79c.15-.5.38-.97.68-1.39c.26-.37.3-.86.07-1.26l-.45-.78a1 1 0 0 1 1.62-1.18l.64.68c.3.33.78.43 1.21.27c.48-.18.99-.28 1.51-.3c.46-.02.86-.31.98-.75l.23-.87ZM12 8.25A3.75 3.75 0 1 0 12 15.75A3.75 3.75 0 0 0 12 8.25Z",
+  bookOpen:
+    "M2.25 5.25A2.25 2.25 0 0 1 4.5 3h5.63c1.09 0 2.14.42 2.93 1.17A4.22 4.22 0 0 1 15.94 3h3.56a2.25 2.25 0 0 1 2.25 2.25v12a.75.75 0 0 1-.75.75h-4.31c-.87 0-1.71.31-2.36.88l-1.3 1.12a1.5 1.5 0 0 1-1.96 0l-1.3-1.12A3.6 3.6 0 0 0 7.41 18H3a.75.75 0 0 1-.75-.75v-12Zm9 1.22A2.99 2.99 0 0 0 10.13 6H4.5a.75.75 0 0 0-.75.75v9.75h3.66c1.31 0 2.57.47 3.55 1.32l.29.24V6.47Zm1.5 11.59 .29-.25a5.1 5.1 0 0 1 3.65-1.31h3.56V6.75A.75.75 0 0 0 19.5 6h-3.56a3 3 0 0 0-3 3v9.06Z",
+  microchip:
+    "M9 6.75A2.25 2.25 0 0 1 11.25 4.5h1.5A2.25 2.25 0 0 1 15 6.75v.75h1.5A2.25 2.25 0 0 1 18.75 9.75v1.5h.75a.75.75 0 0 1 0 1.5h-.75v1.5A2.25 2.25 0 0 1 16.5 16.5H15v.75a2.25 2.25 0 0 1-2.25 2.25h-1.5A2.25 2.25 0 0 1 9 17.25v-.75H7.5a2.25 2.25 0 0 1-2.25-2.25v-1.5H4.5a.75.75 0 0 1 0-1.5h.75v-1.5A2.25 2.25 0 0 1 7.5 7.5H9v-.75Zm2.25-.75a.75.75 0 0 0-.75.75V9h3V6.75a.75.75 0 0 0-.75-.75h-1.5Zm-3 3a.75.75 0 0 0-.75.75v4.5c0 .41.34.75.75.75h7.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-.75-.75h-7.5Zm3-6a.75.75 0 0 1 .75.75v1.5h-1.5v-1.5a.75.75 0 0 1 .75-.75Zm-4.5 3a.75.75 0 0 1 .75.75v1.5H6V6.75a.75.75 0 0 1 .75-.75Zm10.5 0a.75.75 0 0 1 .75.75v1.5h-1.5V6.75a.75.75 0 0 1 .75-.75ZM6.75 16.5c.41 0 .75.34.75.75v1.5H6v-1.5c0-.41.34-.75.75-.75Zm10.5 0c.41 0 .75.34.75.75v1.5h-1.5v-1.5c0-.41.34-.75.75-.75Zm-6 1.5h1.5v1.5h-1.5V18Z",
+  robot:
+    "M10.5 2.25a.75.75 0 0 1 1.5 0v1.53h1.5a3.75 3.75 0 0 1 3.75 3.75v1.22h.75A2.25 2.25 0 0 1 20.25 11v5.25A2.25 2.25 0 0 1 18 18.5h-1.5v.75a.75.75 0 0 1-1.5 0v-.75h-6v.75a.75.75 0 0 1-1.5 0v-.75H6A2.25 2.25 0 0 1 3.75 16.25V11A2.25 2.25 0 0 1 6 8.75h.75V7.53a3.75 3.75 0 0 1 3.75-3.75H12V2.25ZM8.25 7.53v1.22h7.5V7.53c0-1.24-1.01-2.25-2.25-2.25h-3c-1.24 0-2.25 1.01-2.25 2.25ZM6 10.25a.75.75 0 0 0-.75.75v5.25c0 .41.34.75.75.75h12a.75.75 0 0 0 .75-.75V11a.75.75 0 0 0-.75-.75H6Zm2.25 2.25a1.13 1.13 0 1 1 0 2.25a1.13 1.13 0 0 1 0-2.25Zm7.5 0a1.13 1.13 0 1 1 0 2.25a1.13 1.13 0 0 1 0-2.25Zm-6 3.75a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z",
+  plug:
+    "M8.25 3.75a.75.75 0 0 1 1.5 0v4.5H12v-4.5a.75.75 0 0 1 1.5 0v4.5h.75A2.25 2.25 0 0 1 16.5 10.5v1.5A4.5 4.5 0 0 1 12.75 16.43v3.82a.75.75 0 0 1-1.5 0v-3.82A4.5 4.5 0 0 1 7.5 12v-1.5a2.25 2.25 0 0 1 2.25-2.25h.75v-4.5Zm1.5 6a.75.75 0 0 0-.75.75V12a3 3 0 1 0 6 0v-1.5a.75.75 0 0 0-.75-.75h-4.5Z",
+  folderOpen:
+    "M2.25 6A2.25 2.25 0 0 1 4.5 3.75h4.03c.6 0 1.17.24 1.6.66l1.44 1.44c.14.14.33.22.53.22H19.5A2.25 2.25 0 0 1 21.75 8.3v7.2a2.25 2.25 0 0 1-2.25 2.25H5.12a2.25 2.25 0 0 1-2.17-2.84l1.52-5.47a2.25 2.25 0 0 1 2.17-1.66h12.62a.75.75 0 0 1 .72.95l-1.38 4.97a1.5 1.5 0 0 1-1.45 1.1H7.88a.75.75 0 0 0 0 1.5h8.7a2.25 2.25 0 0 0 2.17-1.66l1-3.59H6.63a.75.75 0 0 0-.72.55l-1.52 5.47a.75.75 0 0 0 .72.95H19.5a.75.75 0 0 0 .75-.75V8.3a.75.75 0 0 0-.75-.75H12.1a2.23 2.23 0 0 1-1.6-.66L9.05 5.45a.75.75 0 0 0-.52-.2H4.5A.75.75 0 0 0 3.75 6v.75h-1.5V6Z"
+};
+
+const folderOpenIconPath = iconPaths.folderOpen;
+
 const navItems = [
-  { key: "chat", label: "聊天", short: "聊" },
-  { key: "kb", label: "知识库", short: "知" },
-  { key: "market", label: "智能体", short: "体" },
-  { key: "settings", label: "设置", short: "设" }
+  {
+    key: "chat",
+    label: "聊天",
+    iconPath: iconPaths.chat
+  },
+  {
+    key: "kb",
+    label: "知识库",
+    iconPath: iconPaths.book
+  },
+  {
+    key: "market",
+    label: "智能体",
+    iconPath: iconPaths.store
+  },
+  {
+    key: "settings",
+    label: "设置",
+    iconPath: iconPaths.settings
+  }
 ];
 
 const quickPrompts = [
@@ -404,19 +455,13 @@ const quickPrompts = [
   "把复杂内容总结成背诵提纲"
 ];
 
-const statusLabels = {
-  idle: "待命",
-  queued: "排队中",
-  running: "执行中",
-  completed: "已完成"
-};
-
 const currentPage = ref("chat");
 const composerRef = ref(null);
 const chatFileInputRef = ref(null);
 const knowledgeFileInputRef = ref(null);
 const composerText = ref("");
 const knowledgeSearch = ref("");
+let stopRuntimeSettingsSubscription = null;
 
 const loading = reactive({
   workspace: false,
@@ -443,41 +488,32 @@ const settings = reactive({
   apiKey: "",
   apiKeyMasked: "",
   systemPrompt: "",
-  modelId: ""
+  modelId: "",
+  storageDirectory: "",
+  storagePath: ""
 });
 
 const allAgents = ref([]);
 const knowledgeBases = ref([]);
 const knowledgeDocuments = ref([]);
 const pendingAttachments = ref([]);
-const sessionAttachments = ref([]);
 const messages = ref([]);
 
 const currentModel = computed(() => workspace.currentModel);
 const activeAgent = computed(() => workspace.activeAgent);
 const activeSession = computed(() => workspace.activeSession);
-
+const sessionAttachments = computed(() => workspace.activeSession?.attachments || []);
+const topNavItems = computed(() => navItems.filter((item) => item.key !== "settings"));
+const settingsNavItem = computed(() => navItems.find((item) => item.key === "settings") || navItems[0]);
 const marketAgents = computed(() => allAgents.value.filter((agent) => !agent.isSystem));
 
-const displayedAgentStatuses = computed(() => {
-  const latestAssistant = [...messages.value]
-    .reverse()
-    .find((item) => item.role === "assistant" && item.agentStatuses?.length);
-
-  if (latestAssistant?.agentStatuses?.length) {
-    return latestAssistant.agentStatuses;
-  }
-
-  return workspace.agentCatalog.map((agent) => ({
-    agentId: agent.id,
-    name: agent.name,
-    role: agent.role,
-    state: "idle",
-    summary:
-      agent.role === "retrieval"
-        ? "等待检索指令，尚未开始分析知识库或附件。"
-        : "等待任务拆解，尚未生成回答策略。"
-  }));
+const knowledgeStats = computed(() => {
+  const totalBytes = knowledgeDocuments.value.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0);
+  return {
+    totalCount: knowledgeDocuments.value.length,
+    totalSize: formatSize(totalBytes),
+    latestName: knowledgeDocuments.value[0]?.name || "暂无文档"
+  };
 });
 
 const filteredKnowledgeDocuments = computed(() => {
@@ -489,29 +525,91 @@ const filteredKnowledgeDocuments = computed(() => {
   return knowledgeDocuments.value.filter((doc) => doc.name.toLowerCase().includes(keyword));
 });
 
-const knowledgeStats = computed(() => {
-  const totalBytes = knowledgeDocuments.value.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0);
-  return {
-    totalCount: knowledgeDocuments.value.length,
-    totalSize: formatSize(totalBytes),
-    latestName: knowledgeDocuments.value[0]?.name || "暂无文档"
-  };
-});
-
 const knowledgeSummaryText = computed(() => {
   if (!knowledgeDocuments.value.length) {
-    return "当前暂无可用文档";
+    return "当前暂无可用文档。";
+  }
+
+  if (knowledgeSearch.value.trim()) {
+    return `共找到 ${filteredKnowledgeDocuments.value.length} 份文档`;
   }
 
   return `当前共 ${knowledgeDocuments.value.length} 份资料，覆盖 ${knowledgeBases.value.length} 个知识库`;
 });
 
-const runtimeStatusText = computed(() => {
-  if (settings.baseUrl && (settings.apiKey || settings.apiKeyMasked)) {
-    return "已配置运行接口，聊天页会优先使用当前模型配置。";
-  }
+const chatTitleText = computed(() => `${activeAgent.value?.name || "默认学习助手"} · 学习空间`);
 
-  return "当前为本地演示模式，未填写 API Base URL 或 API Key。";
+const chatSubtitleText = computed(() => {
+  const baseUrl = normalizeBaseUrlDisplay(settings.baseUrl);
+  return baseUrl ? `已连接 ${baseUrl}` : "当前使用本地模拟服务";
+});
+
+const currentModelPillText = computed(() => settings.modelId || currentModel.value?.modelId || "自动识别");
+
+const chatStatusText = computed(() =>
+  settings.baseUrl && (settings.apiKey || settings.apiKeyMasked)
+    ? "已配置直连 API，发送消息会请求真实模型"
+    : "未连接真实后端，当前使用本地模拟回复"
+);
+
+const runtimeStatusText = computed(() =>
+  settings.baseUrl && (settings.apiKey || settings.apiKeyMasked)
+    ? "已检测到 API 配置，页面将优先调用外部 AI 接口。"
+    : "未填写 API Base URL 或 API Key，当前为本地演示模式。"
+);
+
+const settingsRuntimeStatusText = computed(() => {
+  const lines = [runtimeStatusText.value];
+  if (settings.provider || currentModel.value?.provider) {
+    lines.push(`当前 Provider：${settings.provider || currentModel.value?.provider}`);
+  }
+  if (settings.modelId || currentModel.value?.modelId) {
+    lines.push(`当前模型：${settings.modelId || currentModel.value?.modelId}`);
+  }
+  return lines.join(" ");
+});
+
+const settingsModelHelpText = computed(() =>
+  currentModelPillText.value !== "自动识别"
+    ? `当前已自动识别模型：${currentModelPillText.value}`
+    : "不再手动选择模型，页面会从当前 AI 服务自动读取。"
+);
+
+const settingsStorageText = computed(() =>
+  settings.storagePath ? `配置文件位置：${settings.storagePath}` : "配置将保存在系统文档目录下的 agent API 文件夹。"
+);
+
+
+const statusCards = computed(() => {
+  const active = activeAgent.value;
+  return [
+    {
+      title: "知识库状态",
+      content: knowledgeDocuments.value.length
+        ? `已接入 ${knowledgeDocuments.value.length} 份文档，最近导入：${knowledgeDocuments.value[0].name}`
+        : "尚未导入文档，聊天将只基于通用学习策略回答。",
+      iconPath: iconPaths.bookOpen,
+      colorClass: "status-card__icon--blue"
+    },
+    {
+      title: "当前模型",
+      content: `${currentModelPillText.value}${settings.baseUrl ? ` · ${normalizeBaseUrlDisplay(settings.baseUrl)}` : " · 未配置直连地址"}`,
+      iconPath: iconPaths.microchip,
+      colorClass: "status-card__icon--green"
+    },
+    {
+      title: "工作智能体",
+      content: active ? `${active.name} 已激活。${getAgentSpecialty(active)}` : "当前暂无激活智能体。",
+      iconPath: iconPaths.robot,
+      colorClass: "status-card__icon--orange"
+    },
+    {
+      title: "接口接入",
+      content: runtimeStatusText.value,
+      iconPath: iconPaths.plug,
+      colorClass: "status-card__icon--slate"
+    }
+  ];
 });
 
 function applyWorkspace(data) {
@@ -521,8 +619,10 @@ function applyWorkspace(data) {
   workspace.sessions = data.sessions || [];
   workspace.activeSessionId = data.activeSessionId || "";
   workspace.activeSession = data.activeSession || null;
-  messages.value = data.activeSession?.messages || [];
-  sessionAttachments.value = data.activeSession?.attachments || [];
+  messages.value = (data.activeSession?.messages || []).map((item) => ({
+    ...item,
+    source: item.source || inferMessageSource(item)
+  }));
 }
 
 function applyRuntime(payload) {
@@ -533,6 +633,32 @@ function applyRuntime(payload) {
   settings.apiKeyMasked = runtime.apiKeyMasked || "";
   settings.systemPrompt = runtime.systemPrompt || "";
   settings.modelId = runtime.modelId || payload?.currentModel?.modelId || "";
+  settings.storageDirectory = runtime.storageDirectory || "";
+  settings.storagePath = runtime.storagePath || "";
+}
+
+async function refreshRuntimeSettings(options = {}) {
+  const payload = await fetchRuntimeSettings();
+  applyRuntime(payload);
+
+  if (!options.preserveWorkspaceModel && payload?.currentModel) {
+    workspace.currentModel = payload.currentModel;
+  }
+
+  return payload;
+}
+
+function startRuntimeSettingsSubscription() {
+  stopRuntimeSettingsSubscription?.();
+  stopRuntimeSettingsSubscription = subscribeRuntimeSettings(
+    (payload) => {
+      applyRuntime(payload);
+      if (payload?.currentModel) {
+        workspace.currentModel = payload.currentModel;
+      }
+    },
+    () => {}
+  );
 }
 
 async function loadInitialData() {
@@ -552,7 +678,7 @@ async function loadInitialData() {
     allAgents.value = agents;
     applyRuntime(runtime);
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "加载页面数据失败"));
+    ElMessage.error(getErrorMessage(error, "鍔犺浇椤甸潰鏁版嵁澶辫触"));
   } finally {
     loading.workspace = false;
     nextTick(resizeComposer);
@@ -560,8 +686,7 @@ async function loadInitialData() {
 }
 
 async function refreshWorkspace() {
-  const data = await fetchWorkspace();
-  applyWorkspace(data);
+  applyWorkspace(await fetchWorkspace());
 }
 
 async function refreshKnowledge() {
@@ -582,8 +707,10 @@ async function ensureSessionId() {
   const session = await createChatSession({});
   workspace.activeSessionId = session.id;
   workspace.activeSession = session;
-  messages.value = session.messages || [];
-  sessionAttachments.value = session.attachments || [];
+  messages.value = (session.messages || []).map((item) => ({
+    ...item,
+    source: item.source || inferMessageSource(item)
+  }));
   return session.id;
 }
 
@@ -595,25 +722,6 @@ function triggerKnowledgeFilePicker() {
   knowledgeFileInputRef.value?.click();
 }
 
-async function handleNewSession() {
-  loading.chat = true;
-  try {
-    const session = await createChatSession({});
-    workspace.activeSessionId = session.id;
-    workspace.activeSession = session;
-    messages.value = session.messages || [];
-    sessionAttachments.value = session.attachments || [];
-    pendingAttachments.value = [];
-    composerText.value = "";
-    await refreshWorkspace();
-  } catch (error) {
-    ElMessage.error(getErrorMessage(error, "创建会话失败"));
-  } finally {
-    loading.chat = false;
-    nextTick(resizeComposer);
-  }
-}
-
 async function handleClearChat() {
   if (!workspace.activeSessionId) {
     return;
@@ -623,13 +731,15 @@ async function handleClearChat() {
   try {
     const session = await clearChatSession(workspace.activeSessionId);
     workspace.activeSession = session;
-    messages.value = session.messages || [];
-    sessionAttachments.value = session.attachments || [];
+    messages.value = (session.messages || []).map((item) => ({
+      ...item,
+      source: item.source || inferMessageSource(item)
+    }));
     pendingAttachments.value = [];
     ElMessage.success("当前会话已清空");
     await refreshWorkspace();
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "清空聊天失败"));
+    ElMessage.error(getErrorMessage(error, "娓呯┖鑱婂ぉ澶辫触"));
   } finally {
     loading.chat = false;
   }
@@ -653,8 +763,21 @@ async function handleSendMessage() {
     composerText.value = "";
     pendingAttachments.value = [];
     await refreshWorkspace();
-    nextTick(resizeComposer);
+    nextTick(() => {
+      resizeComposer();
+      scrollMessagesToBottom();
+    });
   } catch (error) {
+    if (isTimeoutError(error)) {
+      try {
+        await refreshWorkspace();
+      } catch {
+        // Ignore secondary refresh failures.
+      }
+      ElMessage.warning("请求等待时间较长，已尝试同步最新会话内容。请先查看聊天区是否已经返回结果，不要重复发送同一个问题。");
+      return;
+    }
+
     ElMessage.error(getErrorMessage(error, "发送消息失败"));
   } finally {
     loading.send = false;
@@ -687,10 +810,13 @@ async function handleChatFileChange(event) {
     }
 
     pendingAttachments.value = [...pendingAttachments.value, ...uploaded];
-    sessionAttachments.value = [...sessionAttachments.value, ...uploaded];
+    workspace.activeSession = {
+      ...(workspace.activeSession || {}),
+      attachments: [...sessionAttachments.value, ...uploaded]
+    };
     ElMessage.success(`已加入 ${uploaded.length} 个会话附件`);
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "上传附件失败"));
+    ElMessage.error(getErrorMessage(error, "涓婁紶闄勪欢澶辫触"));
   } finally {
     loading.upload = false;
   }
@@ -720,7 +846,7 @@ async function handleKnowledgeFileChange(event) {
     await refreshKnowledge();
     ElMessage.success(`已导入 ${files.length} 份知识文档`);
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "导入知识文档失败"));
+    ElMessage.error(getErrorMessage(error, "瀵煎叆鐭ヨ瘑鏂囨。澶辫触"));
   } finally {
     loading.importing = false;
   }
@@ -732,7 +858,7 @@ async function handleDeleteKnowledgeDocument(documentId) {
     await refreshKnowledge();
     ElMessage.success("文档已删除");
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "删除文档失败"));
+    ElMessage.error(getErrorMessage(error, "鍒犻櫎鏂囨。澶辫触"));
   }
 }
 
@@ -741,7 +867,7 @@ async function handleClearKnowledge() {
   try {
     await clearKnowledgeDocuments();
     await refreshKnowledge();
-    ElMessage.success("知识库已清空");
+    ElMessage.success("鐭ヨ瘑搴撳凡娓呯┖");
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "清空知识库失败"));
   } finally {
@@ -753,7 +879,7 @@ async function handleActivateAgent(agentId) {
   try {
     await activateAgent(agentId);
     await Promise.all([refreshWorkspace(), refreshAgents()]);
-    ElMessage.success("已切换学习智能体");
+    ElMessage.success("宸插垏鎹㈠涔犳櫤鑳戒綋");
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "切换智能体失败"));
   }
@@ -763,9 +889,11 @@ async function handleDetectModel() {
   try {
     const data = await detectCurrentModel({
       baseUrl: settings.baseUrl,
+      apiKey: settings.apiKey,
       provider: settings.provider,
       modelId: settings.modelId
     });
+
     settings.provider = data.provider || settings.provider;
     settings.modelId = data.model || settings.modelId;
     ElMessage.success(data.message || "已识别当前模型");
@@ -804,6 +932,7 @@ async function handleTestConnection() {
       apiKey: settings.apiKey || "",
       modelId: settings.modelId
     });
+
     ElMessage[data.success ? "success" : "warning"](data.message || "测试完成");
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "测试连接失败"));
@@ -822,6 +951,13 @@ function resizeComposer() {
   element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
 }
 
+function scrollMessagesToBottom() {
+  const element = document.querySelector(".chat-scroll-region");
+  if (element) {
+    element.scrollTop = element.scrollHeight;
+  }
+}
+
 function shouldReadAsText(file) {
   const textExtensions = [".md", ".txt", ".json", ".js", ".ts", ".html", ".css", ".csv"];
   return (
@@ -834,7 +970,7 @@ function readFileAsText(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error(`读取文件失败：${file.name}`));
+    reader.onerror = () => reject(new Error(`璇诲彇鏂囦欢澶辫触锛?{file.name}`));
     reader.readAsText(file, "utf-8");
   });
 }
@@ -871,79 +1007,281 @@ function formatMessageTime(value) {
   });
 }
 
+function normalizeBaseUrlDisplay(baseUrl) {
+  return String(baseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function inferMessageSource(message) {
+  if (message.role !== "assistant") {
+    return "local";
+  }
+
+  return settings.baseUrl && (settings.apiKey || settings.apiKeyMasked) ? "api" : "mock";
+}
+
+function renderMessageContent(content) {
+  const source = String(content || "").replace(/\r\n/g, "\n").trim();
+  if (!source) {
+    return "<p></p>";
+  }
+
+  const blocks = source.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
+  return blocks.map(renderMarkdownBlock).join("");
+}
+
+function renderMarkdownBlock(block) {
+  if (block.startsWith("```") && block.endsWith("```")) {
+    const codeContent = block.replace(/^```[\w-]*\n?/, "").replace(/\n?```$/, "");
+    return `<pre class="md-pre"><code>${escapeHtml(codeContent)}</code></pre>`;
+  }
+
+  const lines = block.split("\n");
+
+  if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+    const items = lines
+      .map((line) => line.replace(/^\s*[-*]\s+/, "").trim())
+      .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
+      .join("");
+    return `<ul class="md-list">${items}</ul>`;
+  }
+
+  if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+    const items = lines
+      .map((line) => line.replace(/^\s*\d+\.\s+/, "").trim())
+      .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
+      .join("");
+    return `<ol class="md-list md-list--ordered">${items}</ol>`;
+  }
+
+  if (lines.length === 1 && /^#{1,3}\s+/.test(lines[0])) {
+    const level = Math.min((lines[0].match(/^#+/)?.[0].length || 1) + 2, 6);
+    const text = lines[0].replace(/^#{1,3}\s+/, "");
+    return `<h${level} class="md-heading">${renderInlineMarkdown(text)}</h${level}>`;
+  }
+
+  return `<p>${lines.map((line) => renderInlineMarkdown(line)).join("<br>")}</p>`;
+}
+
+function renderInlineMarkdown(text) {
+  let html = escapeHtml(String(text || ""));
+  html = html.replace(/`([^`]+)`/g, "<code class=\"md-inline-code\">$1</code>");
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+  return html;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getAgentDisplayLetter(agent) {
+  const role = String(agent.role || "").toLowerCase();
+  if (role.includes("politics")) {
+    return "政";
+  }
+  if (role.includes("coding")) {
+    return "码";
+  }
+  return "学";
+}
+
+function getAgentAccentClass(agent) {
+  const role = String(agent.role || "").toLowerCase();
+  if (role.includes("politics")) {
+    return "market-card__icon--orange";
+  }
+  if (role.includes("coding")) {
+    return "market-card__icon--emerald";
+  }
+  return "market-card__icon--blue";
+}
+
+function getAgentTitle(agent) {
+  const role = String(agent.role || "").toLowerCase();
+  if (role.includes("politics")) {
+    return "政治知识梳理";
+  }
+  if (role.includes("coding")) {
+    return "编程训练";
+  }
+  return "综合学习规划";
+}
+
+function getAgentDescription(agent) {
+  const role = String(agent.role || "").toLowerCase();
+  if (role.includes("politics")) {
+    return "适合主观题框架拆解、观点提炼和记忆提纲整理。";
+  }
+  if (role.includes("coding")) {
+    return "适合代码解释、错误定位、练习设计和学习路线规划。";
+  }
+  return "适合日常问答、知识梳理、计划拆解和学习总结。";
+}
+
+function getAgentSpecialty(agent) {
+  const scope = String(agent.knowledgeScope || "").trim();
+  if (scope) {
+    return `擅长范围：${scope}`;
+  }
+
+  const role = String(agent.role || "").toLowerCase();
+  if (role.includes("politics")) {
+    return "擅长总结答题模板和论述结构。";
+  }
+  if (role.includes("coding")) {
+    return "擅长定位错误原因并给出改写建议。";
+  }
+  return "擅长把模糊任务拆成清晰步骤。";
+}
+
 function getErrorMessage(error, fallback) {
   return error?.response?.data?.message || error?.message || fallback;
 }
 
+function isTimeoutError(error) {
+  return error?.code === "ECONNABORTED" || String(error?.message || "").toLowerCase().includes("timeout");
+}
+
 onMounted(() => {
   loadInitialData();
+  startRuntimeSettingsSubscription();
+});
+
+watch(currentPage, async (page) => {
+  if (page !== "settings") {
+    return;
+  }
+
+  try {
+    await refreshRuntimeSettings();
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "读取配置文件失败"));
+  }
+});
+
+onBeforeUnmount(() => {
+  stopRuntimeSettingsSubscription?.();
+  stopRuntimeSettingsSubscription = null;
 });
 </script>
 
 <style scoped>
+:root {
+  --main-blue: #005fb8;
+  --deep-blue: #004a8f;
+  --light-blue: #eef6ff;
+  --panel-border: #dce8f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 .study-shell {
   min-height: 100vh;
   display: flex;
+  overflow: hidden;
   background:
     radial-gradient(circle at top right, rgba(0, 95, 184, 0.12), transparent 24%),
     linear-gradient(135deg, #eef5ff 0%, #f7fbff 48%, #edf4ff 100%);
+  color: #1f2937;
 }
 
 .side-nav {
   width: 80px;
-  padding: 32px 0;
-  background: #004a8f;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 40px;
+  padding: 32px 0;
+  background: #004a8f;
+  color: #dbeafe;
+  z-index: 10;
+}
+
+.side-nav__spacer {
+  flex: 1;
 }
 
 .brand-mark {
   width: 48px;
   height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 18px;
-  display: grid;
-  place-items: center;
   background: #ffffff;
   color: #004a8f;
-  font-weight: 800;
   box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
-  margin-bottom: 10px;
 }
 
 .nav-button {
   width: 48px;
   height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 14px;
   background: transparent;
-  color: #d6e8ff;
-  font-size: 16px;
+  color: inherit;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: 0.2s ease-in-out;
 }
 
 .nav-button:hover,
 .nav-button--active {
   background: #ffffff;
-  color: #005fb8;
+  color: var(--main-blue);
   box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
+}
+
+.nav-icon {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.nav-icon--brand {
+  width: 26px;
+  height: 26px;
 }
 
 .workspace-main {
   flex: 1;
   min-width: 0;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 .page-view {
-  min-height: 100vh;
-  padding: 32px;
+  display: none;
+  animation: fadeIn 0.22s ease-in-out;
+}
+
+.page-view.active {
+  display: flex;
 }
 
 .page-view--chat {
-  padding: 0;
+  height: 100%;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-view--standard {
+  min-height: 100vh;
+  flex-direction: column;
+  padding: 32px;
+  overflow-y: auto;
 }
 
 .top-bar {
@@ -953,531 +1291,1002 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid #dce8f5;
+  border-bottom: 1px solid #dbeafe;
   backdrop-filter: blur(10px);
 }
 
-.online-row {
+.top-bar__title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.top-bar__title h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.top-bar__title p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .online-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
   border-radius: 999px;
   background: #22c55e;
 }
 
-.sub-copy,
-.page-header p,
-.toolbar-copy,
-.document-card p,
-.status-item p,
-.empty-copy,
-.hint-row {
-  color: #64748b;
-}
-
-.top-actions {
+.top-bar__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.model-pill,
-.doc-badge,
-.attachment-chip,
-.attachment-label,
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 12px;
+  gap: 16px;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .model-pill {
-  background: #edf5ff;
-  color: #005fb8;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 14px;
 }
 
-.icon-button,
-.primary-button,
-.secondary-button,
-.quick-chip,
-.composer-attach,
-.send-button,
-.link-button {
+.clear-button {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  cursor: pointer;
-  transition: 0.2s ease;
-  font: inherit;
-}
-
-.icon-button,
-.secondary-button,
-.quick-chip {
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #dbe5f0;
-}
-
-.icon-button,
-.secondary-button {
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 14px;
-}
-
-.primary-button,
-.send-button {
-  background: linear-gradient(135deg, #005fb8, #0c78da);
-  color: #ffffff;
-}
-
-.primary-button {
-  height: 44px;
-  padding: 0 18px;
-  border-radius: 14px;
-  font-weight: 700;
-}
-
-.primary-button--small {
-  height: 38px;
-  padding: 0 14px;
-}
-
-.link-button {
   background: transparent;
-  color: #005fb8;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
 }
 
-.page-header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+.clear-button:hover {
+  color: #2563eb;
 }
 
-.page-header--stacked {
-  align-items: start;
+.action-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
-.page-header h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-
-.page-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.page-actions--text {
-  color: #475569;
-}
-
-.chat-grid {
+.chat-layout {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  min-height: calc(100vh - 64px);
+  overflow: hidden;
 }
 
 .chat-column {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-scroll-region {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .quick-prompts {
+  width: min(100%, 1320px);
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 24px 32px 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 24px 32px 0;
 }
 
 .quick-chip {
-  min-height: 40px;
-  padding: 0 16px;
+  padding: 10px 16px;
+  border: 1px solid #dbeafe;
   border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.2s ease-in-out;
 }
 
 .quick-chip:hover {
-  border-color: #9fc4ea;
-  color: #005fb8;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .message-list {
-  flex: 1;
-  overflow: auto;
-  padding: 24px 32px;
-  display: grid;
-  gap: 18px;
+  min-height: 100%;
+  padding: 8px 32px 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  scroll-padding-bottom: 220px;
 }
 
 .message-row {
   display: flex;
+  width: min(100%, 1320px);
+  margin: 0 auto;
+}
+
+.message-row--assistant {
+  justify-content: flex-start;
 }
 
 .message-row--user {
   justify-content: flex-end;
 }
 
-.message-card {
-  max-width: min(760px, 100%);
-  padding: 18px 20px;
-  border-radius: 24px;
-  border: 1px solid #dbe5f0;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+.message-thread {
+  max-width: min(896px, 100%);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.message-row--user .message-card {
-  background: linear-gradient(135deg, #005fb8, #0c78da);
-  color: #ffffff;
-  border-color: transparent;
+.message-thread--user {
+  flex-direction: row-reverse;
 }
 
-.message-row--user .message-meta span,
-.message-row--user .message-content {
-  color: rgba(255, 255, 255, 0.88);
+.message-thread__body {
+  max-width: min(768px, 100%);
 }
 
-.message-meta {
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  font-size: 12px;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
-.message-content {
-  margin: 12px 0 0;
-  line-height: 1.7;
-  white-space: pre-wrap;
+.message-avatar--assistant {
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
 }
 
-.attachment-chips,
-.timeline-list,
-.status-list,
-.metric-list {
-  display: grid;
-  gap: 12px;
-}
-
-.attachment-chips {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-
-.doc-badge,
-.attachment-chip,
-.attachment-label {
-  background: #f1f7ff;
-  color: #005fb8;
-}
-
-.message-row--user .attachment-chip {
-  background: rgba(255, 255, 255, 0.16);
+.message-avatar--user {
+  background: #0f172a;
   color: #ffffff;
 }
 
-.timeline-item {
-  display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.24);
+.message-bubble {
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  line-height: 1.75;
+  font-size: 14px;
+  word-break: break-word;
 }
 
-.timeline-dot {
-  width: 12px;
-  height: 12px;
-  margin-top: 5px;
+.chat-bubble-user {
+  background: linear-gradient(135deg, #005fb8, #0c78da);
+  color: #ffffff;
+  border-radius: 18px 4px 18px 18px;
+}
+
+.chat-bubble-assistant {
+  background: #ffffff;
+  border: 1px solid #dbe5f0;
+  border-radius: 4px 18px 18px 18px;
+  color: #374151;
+}
+
+.message-time {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.message-time--user {
+  text-align: right;
+}
+
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.typing-text {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  background: #cbd5e1;
+  background: #60a5fa;
+  animation: pulse 1.1s infinite ease-in-out;
 }
 
-.timeline-dot--completed {
-  background: #22c55e;
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
 }
 
-.timeline-dot--running {
-  background: #f59e0b;
-}
-
-.timeline-dot--queued {
-  background: #94a3b8;
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 .composer-panel {
-  padding: 20px 24px 24px;
-  background: rgba(255, 255, 255, 0.84);
-  border-top: 1px solid #dce8f5;
-  backdrop-filter: blur(8px);
+  position: sticky;
+  bottom: 0;
+  z-index: 8;
+  margin-top: auto;
+  padding: 20px 32px 24px;
+  background: linear-gradient(180deg, rgba(245, 249, 255, 0.05) 0%, rgba(255, 255, 255, 0.94) 20%, rgba(255, 255, 255, 0.98) 100%);
+  border-top: 1px solid #dbeafe;
+  box-shadow: 0 -10px 30px rgba(148, 163, 184, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.composer-inner {
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
 .composer-box {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: end;
-  padding: 14px;
-  border-radius: 26px;
-  background: #f8fbff;
-  border: 1px solid #dbe5f0;
+  display: flex;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  background: #f9fafb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .composer-attach {
-  min-width: 96px;
+  width: 48px;
   height: 48px;
-  border-radius: 18px;
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #dbe5f0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.composer-attach:hover {
+  color: #3b82f6;
+}
+
+.composer-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .composer-input {
-  width: 100%;
+  flex: 1;
   min-height: 48px;
   max-height: 160px;
   border: none;
   background: transparent;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2937;
   outline: none;
   resize: none;
-  font: inherit;
-  line-height: 1.6;
-  padding: 12px 4px;
 }
 
 .send-button {
   min-width: 96px;
   height: 48px;
+  flex-shrink: 0;
+  border: none;
   border-radius: 18px;
-  font-weight: 700;
+  background: #005fb8;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.send-button:hover {
+  background: #1d4ed8;
 }
 
 .hint-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
   margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   font-size: 12px;
+  color: #6b7280;
 }
 
-.status-column {
-  display: grid;
-  gap: 16px;
-  padding: 24px;
-  border-left: 1px solid #dce8f5;
-  background: rgba(255, 255, 255, 0.62);
+.pending-files {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pending-files__label {
+  font-size: 12px;
+  color: #6b7280;
+  align-self: center;
+}
+
+.status-panel {
+  display: none;
+  flex-direction: column;
+  border-left: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(10px);
+}
+
+.status-panel__header {
+  padding: 24px;
+  border-bottom: 1px solid #dbeafe;
+}
+
+.status-panel__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.status-panel__header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.status-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .surface-card {
   background: rgba(255, 255, 255, 0.88);
-  border: 1px solid #dce8f5;
-  border-radius: 24px;
-  padding: 20px;
+  border: 1px solid var(--panel-border);
   backdrop-filter: blur(10px);
 }
 
-.card-head,
-.status-item__head,
-.document-card__head,
-.document-meta,
-.metric-row,
-.agent-foot,
-.settings-actions,
-.inline-field {
+.status-card {
+  padding: 16px;
+  border-radius: 16px;
+}
+
+.status-card__head {
   display: flex;
   align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-card__head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.status-card__icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.status-card__icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.status-card__icon--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-card__icon--green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.status-card__icon--orange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.status-card__icon--slate {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.status-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #4b5563;
+}
+
+.page-header {
+  margin-bottom: 32px;
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header h1,
+.settings-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.page-header p,
+.settings-subtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.page-actions {
+  display: flex;
   gap: 12px;
 }
 
-.card-head {
-  margin-bottom: 14px;
-}
-
-.card-head h3,
-.document-card h3,
-.agent-card h3,
-.info-card h3 {
-  margin: 0;
-}
-
-.status-item,
-.mini-item {
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid #e6eef8;
-}
-
-.status-badge--idle {
-  background: #eef2f7;
-  color: #64748b;
-}
-
-.status-badge--queued {
-  background: #fff4d9;
-  color: #a16207;
-}
-
-.status-badge--running {
-  background: #e7f0ff;
-  color: #005fb8;
-}
-
-.status-badge--completed {
-  background: #e9f9ee;
-  color: #15803d;
-}
-
-.mini-item,
-.metric-row {
+.primary-button,
+.secondary-button {
+  border: none;
+  border-radius: 14px;
   font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease-in-out;
 }
 
-.empty-block,
-.empty-card {
-  text-align: center;
-  color: #64748b;
+.primary-button {
+  padding: 10px 20px;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
 }
 
-.stats-grid,
-.document-grid,
-.agent-grid,
-.settings-shell {
-  display: grid;
-  gap: 16px;
+.primary-button:hover {
+  background: #1d4ed8;
+}
+
+.secondary-button {
+  padding: 10px 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.secondary-button:hover {
+  background: #f9fafb;
+}
+
+.secondary-button--wide {
+  min-width: 110px;
+}
+
+.secondary-button--strong {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.primary-button--stretch {
+  flex: 1;
 }
 
 .stats-grid {
+  margin-bottom: 24px;
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 16px;
+  gap: 16px;
 }
 
-.metric-card strong {
+.stats-card {
+  padding: 20px;
+  border-radius: 20px;
+}
+
+.stats-card p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.stats-card strong {
   display: block;
-  margin-top: 14px;
-  font-size: 34px;
+  margin-top: 12px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #1f2937;
 }
 
-.metric-card__title {
-  font-size: 20px;
+.stats-card__truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
 }
 
 .toolbar-card {
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+}
+
+.toolbar-search {
+  position: relative;
+  flex: 1;
+}
+
+.toolbar-search__icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+.search-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 .search-input,
 .text-input {
   width: 100%;
-  height: 46px;
+  border: 1px solid #e5e7eb;
   border-radius: 14px;
-  border: 1px solid #dbe5f0;
-  background: #f8fbff;
-  padding: 0 14px;
-  font: inherit;
+  background: #f9fafb;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #1f2937;
   outline: none;
 }
 
+.search-input {
+  padding-left: 44px;
+}
+
+.text-input--readonly {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
 .text-input--textarea {
-  min-height: 140px;
-  padding: 14px;
   resize: vertical;
+  min-height: 110px;
+}
+
+.toolbar-summary {
+  font-size: 14px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.kb-empty {
+  padding: 56px;
+  border: 2px dashed #d1d5db;
+  border-radius: 24px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.kb-empty__icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kb-empty__icon svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+.kb-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #374151;
+}
+
+.kb-empty p {
+  margin: 8px 0 0;
+  font-size: 14px;
 }
 
 .document-grid,
 .agent-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-.document-card,
-.agent-card {
   display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
 }
 
-.document-meta {
+.document-card {
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.document-card__top {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.document-type-badge {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.document-delete {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.document-delete:hover {
+  color: #ef4444;
+}
+
+.document-card h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  word-break: break-all;
+}
+
+.document-card p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #6b7280;
+}
+
+.document-card__meta {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
-  color: #64748b;
   font-size: 12px;
+  color: #6b7280;
 }
 
-.agent-card--active {
-  border-color: #8fbdea;
-  box-shadow: 0 18px 40px rgba(0, 95, 184, 0.12);
+.settings-title {
+  margin-bottom: 12px;
 }
 
-.agent-card__head {
+.settings-subtitle {
+  margin-bottom: 32px;
+}
+
+.settings-card {
+  max-width: 768px;
+  padding: 32px;
+  border-radius: 24px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.field-inline {
+  display: flex;
+  gap: 12px;
+}
+
+.field-help {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.settings-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.settings-info-card {
+  padding: 16px;
+  border-radius: 16px;
+}
+
+.settings-info-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.settings-info-card__content {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #6b7280;
+}
+
+.settings-info-card__path {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #475569;
+  word-break: break-all;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.market-active-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.market-active-text span {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.market-card {
+  padding: 24px;
+  border-radius: 24px;
+}
+
+.market-card--active {
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.8) inset;
+}
+
+.market-card__top {
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.agent-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: #edf5ff;
-  color: #005fb8;
-  font-weight: 800;
+.market-card__icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  font-size: 20px;
+  font-weight: 700;
 }
 
-.agent-foot {
-  align-items: end;
+.market-card__icon--blue {
+  background: #dbeafe;
+  color: #2563eb;
 }
 
-.agent-foot span {
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1.6;
+.market-card__icon--orange {
+  background: #ffedd5;
+  color: #ea580c;
 }
 
-.settings-shell {
-  grid-template-columns: minmax(0, 1.2fr) 320px;
+.market-card__icon--emerald {
+  background: #d1fae5;
+  color: #059669;
 }
 
-.settings-card,
-.settings-side {
-  display: grid;
-  gap: 16px;
+.market-card__badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 12px;
 }
 
-.field-block {
+.market-card__badge--active {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.market-card h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.market-card__subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.market-card__description {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #4b5563;
+}
+
+.market-card__specialty {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.7;
+}
+
+.market-card__button {
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid #bfdbfe;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.market-card__button--active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.empty-block {
+  padding: 56px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #2563eb;
+  font-size: 12px;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+.markdown-content :deep(p),
+.markdown-content :deep(ul),
+.markdown-content :deep(ol),
+.markdown-content :deep(pre),
+.markdown-content :deep(h3),
+.markdown-content :deep(h4),
+.markdown-content :deep(h5) {
+  margin: 0;
+}
+
+.markdown-content :deep(p + p),
+.markdown-content :deep(p + ul),
+.markdown-content :deep(p + ol),
+.markdown-content :deep(ul + p),
+.markdown-content :deep(ol + p),
+.markdown-content :deep(pre + p),
+.markdown-content :deep(p + pre),
+.markdown-content :deep(h3 + p),
+.markdown-content :deep(h4 + p),
+.markdown-content :deep(h5 + p) {
+  margin-top: 12px;
+}
+
+.markdown-content :deep(.md-heading) {
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.markdown-content :deep(.md-list) {
+  padding-left: 20px;
   display: grid;
   gap: 8px;
 }
 
-.field-block span {
-  font-weight: 600;
+.markdown-content :deep(.md-inline-code) {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.08);
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
 }
 
-.info-card p {
-  margin: 0;
-  color: #64748b;
-  line-height: 1.7;
+.chat-bubble-user :deep(.md-inline-code) {
+  background: rgba(255, 255, 255, 0.18);
 }
 
-.hidden-file-input {
-  display: none;
+.markdown-content :deep(.md-pre) {
+  overflow: auto;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.markdown-content :deep(.md-pre code) {
+  white-space: pre-wrap;
+  font-family: "Consolas", "Courier New", monospace;
 }
 
 button:disabled {
@@ -1485,15 +2294,49 @@ button:disabled {
   cursor: not-allowed;
 }
 
-@media (max-width: 1200px) {
-  .chat-grid,
-  .settings-shell {
+.hidden-file-input {
+  display: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@media (min-width: 1280px) {
+  .status-panel {
+    display: flex;
+  }
+}
+
+@media (max-width: 1279px) {
+  .chat-layout {
     grid-template-columns: 1fr;
   }
 
-  .status-column {
+  .status-panel {
+    display: flex;
     border-left: none;
-    border-top: 1px solid #dce8f5;
+    border-top: 1px solid #dbeafe;
   }
 }
 
@@ -1504,20 +2347,21 @@ button:disabled {
 
   .side-nav {
     width: 100%;
-    padding: 16px;
     flex-direction: row;
     justify-content: center;
+    gap: 16px;
+    padding: 16px;
   }
 
-  .brand-mark {
-    margin-bottom: 0;
-    margin-right: 12px;
+  .side-nav__spacer {
+    display: none;
   }
 
-  .page-view,
-  .top-bar,
+  .page-view--standard,
   .quick-prompts,
-  .message-list {
+  .message-list,
+  .composer-panel,
+  .top-bar {
     padding-left: 20px;
     padding-right: 20px;
   }
@@ -1526,19 +2370,29 @@ button:disabled {
   .page-header,
   .toolbar-card,
   .hint-row,
-  .card-head,
-  .status-item__head,
-  .document-meta,
-  .agent-foot,
+  .field-inline,
   .settings-actions,
-  .inline-field {
+  .document-card__meta {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .composer-box,
-  .stats-grid {
+  .stats-grid,
+  .settings-info-grid {
+    display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .composer-box {
+    gap: 8px;
+  }
+
+  .settings-card {
+    max-width: none;
   }
 }
 </style>
+
+
+

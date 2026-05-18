@@ -28,7 +28,11 @@ export function registerChatRoutes(app) {
     res.status(201).json(uploadAttachment(req.body));
   });
 
-  app.post("/api/chat/messages", (req, res) => {
-    res.status(201).json(sendMessage(req.body));
+  app.post("/api/chat/messages", async (req, res, next) => {
+    try {
+      res.status(201).json(await sendMessage(req.body));
+    } catch (error) {
+      next(error);
+    }
   });
 }
