@@ -33,7 +33,7 @@
 ```json
 {
   "status": "ok",
-  "timestamp": "2026-05-18T03:00:00.000Z"
+  "timestamp": "2026-05-19T03:00:00.000Z"
 }
 ```
 
@@ -73,20 +73,6 @@
 
 说明：获取模型配置列表。
 
-响应字段：
-
-- `id`
-- `name`
-- `provider`
-- `base_url`
-- `api_key_masked`
-- `model_id`
-- `context_length`
-- `temperature`
-- `stream_enabled`
-- `is_default`
-- `created_at`
-
 ### `POST /api/models`
 
 说明：新增模型配置。
@@ -109,29 +95,11 @@
 
 ### `POST /api/models/test`
 
-说明：测试模型接口连通性。当前为示例返回，不请求真实第三方接口。
+说明：测试模型接口连通性。已接入外部 HTTP 调用，会实际请求配置的 API 地址。
 
-请求示例：
+### `POST /api/models/current/detect`
 
-```json
-{
-  "provider": "DeepSeek",
-  "modelId": "deepseek-chat"
-}
-```
-
-响应示例：
-
-```json
-{
-  "success": true,
-  "provider": "DeepSeek",
-  "modelId": "deepseek-chat",
-  "latencyMs": 420,
-  "checkedAt": "2026-05-18T03:00:00.000Z",
-  "message": "示例实现未调用真实大模型接口，当前返回本地连通性模拟结果。"
-}
-```
+说明：根据 Base URL 和 API Key 自动检测识别当前模型 ID。
 
 ## 6. 知识库接口
 
@@ -143,71 +111,46 @@
 
 说明：新建知识库。
 
-请求示例：
+### `POST /api/knowledge/import`
 
-```json
-{
-  "name": "高等数学知识库",
-  "category": "数学",
-  "status": "active",
-  "vectorStore": "SQLite + sqlite-vec",
-  "description": "包含导数、积分、极限等资料。"
-}
-```
-
-### `POST /api/knowledge-bases/:id/documents`
-
-说明：为指定知识库登记文档。当前用于示例数据记录。
+说明：导入本地文档到知识库。支持 PDF、DOCX、Markdown、TXT 等格式。PDF/DOCX 会上传到服务端自动解析为纯文本并切块索引到 FTS5。
 
 请求示例：
 
 ```json
 {
-  "title": "导数基础讲义",
-  "sourceType": "markdown",
-  "chunkCount": 24
+  "files": [
+    {
+      "name": "高等数学复习提纲.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 12340,
+      "contentText": "data:application/pdf;base64,JVBERi0xLjQK..."
+    }
+  ]
 }
 ```
 
-### `POST /api/knowledge-bases/:id/retrieval-test`
+### `DELETE /api/knowledge/documents/:id`
 
-说明：执行知识库检索测试。
+说明：删除指定知识文档，同时清理关联的 RAG 切块。
 
-请求示例：
+### `DELETE /api/knowledge/documents`
 
-```json
-{
-  "query": "什么是导数的几何意义",
-  "topK": 3
-}
-```
+说明：清空所有知识文档，同时清理所有关联的 RAG 切块。
 
 ## 7. 智能体接口
 
 ### `GET /api/agents`
 
-说明：获取智能体列表。
-
-说明补充：
-
-- 初始化时会自动补齐聊天工作区所需的 `retrieval` 和 `planning` 角色
-- 手工新增的智能体仍可通过该接口统一管理
+说明：获取智能体列表。初始化时会自动补齐聊天工作区所需的 `retrieval` 和 `planning` 角色。
 
 ### `POST /api/agents`
 
 说明：新增智能体。
 
-请求示例：
+### `POST /api/agents/:id/activate`
 
-```json
-{
-  "name": "资源生成智能体",
-  "role": "resource_generation",
-  "modelBinding": "DeepSeek",
-  "promptTemplate": "根据学习目标生成结构化学习讲义。",
-  "knowledgeScope": "高等数学知识库、用户画像、学习计划"
-}
-```
+说明：激活指定智能体为当前工作智能体。
 
 ## 8. 学习工作流接口
 
@@ -231,15 +174,9 @@
 
 说明：提交答案并生成自动评价，同时写入 `answers`。
 
-说明补充：
-
-- 当前以上工作流接口均为本地示例逻辑
-- 已具备数据库写入和前后端联调用法
-- 尚未接入真实大模型推理
-
 ## 9. 聊天工作区接口
 
-该部分为当前版本新增接口，用于支撑首页“聊天 / 多智能体学习空间”。
+该部分为当前版本核心接口，用于支撑首页聊天 / 多智能体学习空间。
 
 ### `GET /api/chat/workspace`
 
@@ -251,45 +188,59 @@
 {
   "currentModel": {
     "id": "model_deepseek",
-    "name": "DeepSeek 资源生成",
+    "name": "DeepSeek 学习工作模型",
     "provider": "DeepSeek",
     "modelId": "deepseek-chat",
     "isDefault": true
+  },
+  "activeAgent": {
+    "id": "agent_planner",
+    "name": "学习规划智能体",
+    "role": "planning"
   },
   "agentCatalog": [
     {
       "id": "agent_x1",
       "name": "检索智能体",
       "role": "retrieval",
-      "modelBinding": "DeepSeek 资源生成",
-      "knowledgeScope": "知识库、附件、向量检索结果"
+      "modelBinding": "DeepSeek 学习工作模型",
+      "knowledgeScope": "知识库、上传附件、文档切片"
     },
     {
       "id": "agent_x2",
       "name": "规划智能体",
       "role": "planning",
-      "modelBinding": "DeepSeek 资源生成",
-      "knowledgeScope": "用户目标、会话上下文、知识库摘要"
+      "modelBinding": "DeepSeek 学习工作模型",
+      "knowledgeScope": "学习目标、对话上下文、可用资源"
     }
   ],
   "sessions": [
     {
       "id": "chat_xxxxxxxx",
-      "title": "新建对话",
+      "title": "导数学习计划",
       "status": "active",
-      "updatedAt": "2026-05-18T03:00:00.000Z",
-      "messageCount": 1,
-      "lastMessagePreview": "你好，我已经接入当前工作区..."
+      "updatedAt": "2026-05-19T03:00:00.000Z",
+      "messageCount": 5,
+      "lastMessagePreview": "好的，我理解你的学习目标是..."
     }
   ],
   "activeSessionId": "chat_xxxxxxxx",
   "activeSession": {
     "id": "chat_xxxxxxxx",
-    "title": "新建对话",
+    "title": "导数学习计划",
     "status": "active",
     "modelConfigId": "model_deepseek",
-    "attachments": [],
-    "messages": []
+    "attachments": [ { "id": "att_x", "name": "notes.pdf", "mimeType": "application/pdf" } ],
+    "messages": [
+      {
+        "id": "msg_x",
+        "role": "assistant",
+        "content": "你好，我已经接入当前学习工作区...",
+        "citations": [],
+        "agentStatuses": [ { "agentId": "agent_x1", "name": "检索智能体", "state": "idle" } ],
+        "createdAt": "2026-05-19T03:00:00.000Z"
+      }
+    ]
   }
 }
 ```
@@ -308,24 +259,33 @@
 
 ### `GET /api/chat/sessions/:id`
 
-说明：获取单个会话详情。
+说明：获取单个会话详情（含消息列表、附件列表、引用信息）。
 
-返回字段：
+### `PATCH /api/chat/sessions/:id`
 
-- `id`
-- `title`
-- `status`
-- `modelConfigId`
-- `createdAt`
-- `updatedAt`
-- `attachments`
-- `messages`
+说明：重命名会话。
+
+请求示例：
+
+```json
+{
+  "title": "微积分专项复习"
+}
+```
+
+### `DELETE /api/chat/sessions/:id`
+
+说明：删除会话，同时清理关联消息、附件和 RAG 切块。返回新的活动会话。
+
+### `POST /api/chat/sessions/:id/clear`
+
+说明：清空会话的所有消息和附件（保留会话本身），同时清理关联的 RAG 切块。
 
 ### `POST /api/chat/attachments`
 
-说明：登记附件到某个聊天会话。当前版本记录元数据和文本摘录，不做真实文件落盘。
+说明：上传附件到聊天会话。支持 PDF、DOCX、MD、TXT 等格式。PDF/DOCX 上传后自动在服务端解析为纯文本、切块、建立 FTS5 索引。
 
-请求示例：
+请求示例（Markdown 文件，直接发送文本内容）：
 
 ```json
 {
@@ -337,23 +297,35 @@
 }
 ```
 
+请求示例（PDF 文件，以 Base64 Data URL 发送）：
+
+```json
+{
+  "sessionId": "chat_xxxxxxxx",
+  "name": "calculus.pdf",
+  "mimeType": "application/pdf",
+  "sizeBytes": 204800,
+  "contentText": "data:application/pdf;base64,JVBERi0xLjQK..."
+}
+```
+
 响应示例：
 
 ```json
 {
   "id": "att_xxxxxxxx",
   "sessionId": "chat_xxxxxxxx",
-  "name": "lecture-notes.md",
-  "mimeType": "text/markdown",
-  "sizeBytes": 4096,
-  "contentExcerpt": "# 导数\n\n这是附件正文",
-  "createdAt": "2026-05-18T03:00:00.000Z"
+  "name": "calculus.pdf",
+  "mimeType": "application/pdf",
+  "sizeBytes": 204800,
+  "contentExcerpt": "第一章 极限与连续\n\n极限是微积分的基石概念...（解析后的文本前 2000 字符）",
+  "createdAt": "2026-05-19T03:00:00.000Z"
 }
 ```
 
 ### `POST /api/chat/messages`
 
-说明：发送消息并生成一条助手回复，返回本轮协同状态。
+说明：发送消息并生成一条助手回复。发送时自动执行 RAG 检索——根据消息内容搜索已索引的文档切块，将相关片段注入 LLM 上下文，返回引用信息。
 
 请求示例：
 
@@ -372,9 +344,14 @@
   "sessionId": "chat_xxxxxxxx",
   "currentModel": {
     "id": "model_deepseek",
-    "name": "DeepSeek 资源生成",
+    "name": "DeepSeek 学习工作模型",
     "provider": "DeepSeek",
-    "model_id": "deepseek-chat"
+    "modelId": "deepseek-chat"
+  },
+  "activeAgent": {
+    "id": "agent_planner",
+    "name": "学习规划智能体",
+    "role": "planning"
   },
   "userMessage": {
     "id": "msg_user_x",
@@ -383,23 +360,38 @@
     "attachments": [
       {
         "id": "att_xxxxxxxx",
-        "name": "lecture-notes.md",
-        "mimeType": "text/markdown",
-        "sizeBytes": 4096
+        "name": "calculus.pdf",
+        "mimeType": "application/pdf",
+        "sizeBytes": 204800
       }
-    ]
+    ],
+    "createdAt": "2026-05-19T03:00:00.000Z"
   },
   "assistantMessage": {
     "id": "msg_ai_x",
     "role": "assistant",
-    "content": "当前模型：DeepSeek 资源生成。\n你的目标我理解为：基于我刚上传的资料，帮我做一个两周学习计划\n...",
+    "content": "根据你上传的微积分资料，我为你制定了以下两周学习计划...",
+    "citations": [
+      {
+        "refId": 1,
+        "sourceName": "calculus.pdf",
+        "chunkIndex": 3,
+        "snippet": "极限定义与无穷小替换是高数第一阶段学习重点..."
+      },
+      {
+        "refId": 2,
+        "sourceName": "calculus.pdf",
+        "chunkIndex": 7,
+        "snippet": "函数连续性判断需要结合左右极限与函数值..."
+      }
+    ],
     "agentStatuses": [
       {
         "agentId": "agent_x1",
         "name": "检索智能体",
         "role": "retrieval",
         "state": "completed",
-        "summary": "已定位 2 个候选知识库..."
+        "summary": "已定位 2 个候选知识库，覆盖 12 份资料。本轮未附带附件。"
       },
       {
         "agentId": "agent_x2",
@@ -408,27 +400,39 @@
         "state": "completed",
         "summary": "已根据你的目标拆解回答结构..."
       }
-    ]
+    ],
+    "source": "api",
+    "createdAt": "2026-05-19T03:00:00.000Z"
   }
 }
 ```
+
+`citations` 字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `refId` | number | 引用编号，对应 LLM 提示中的 `[REF:N]` 标记 |
+| `sourceName` | string | 来源文件名 |
+| `chunkIndex` | number | 文档切块序号 |
+| `snippet` | string | 切块内容前 120 字符预览 |
 
 ## 10. 当前 API 边界
 
 当前 API 已覆盖：
 
-- 桌面首页聊天工作区
-- 会话与消息持久化
-- 模型配置管理
-- 知识库基础管理
-- 智能体基础管理
-- 学习资源生成
-- 练习与反馈闭环
+- 桌面首页聊天工作区（含 RAG 检索增强）
+- 会话与消息持久化（含会话重命名、删除、清空）
+- 附件上传与文档解析（PDF / DOCX / MD / TXT）
+- 文档自动切块与 FTS5 全文索引
+- RAG 检索召回与引用返回
+- 模型配置管理（含自动检测和连通性测试）
+- 知识库管理与文档导入（含解析+切块+索引）
+- 智能体市场与激活切换
+- 学习资源生成、练习与反馈闭环
 
 当前 API 尚未覆盖：
 
-- 真实第三方模型调用
-- 真实文件保存、解析与索引
-- 真实向量检索和重排
+- 向量检索（当前为 FTS5 关键词检索）
 - 用户登录鉴权
 - 导出报告与附件下载
+- 流式响应（SSE）

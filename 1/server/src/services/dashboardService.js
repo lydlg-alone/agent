@@ -1,9 +1,10 @@
 import { getDb } from "../config/database.js";
+import { getCurrentModelConfig } from "./modelConfigService.js";
 
 export function getDashboardSummary() {
   const db = getDb();
   const counts = {
-    models: db.prepare("SELECT COUNT(*) AS total FROM model_configs").get().total,
+    models: getCurrentModelConfig() ? 1 : 0,
     knowledgeBases: db.prepare("SELECT COUNT(*) AS total FROM knowledge_bases").get().total,
     agents: db.prepare("SELECT COUNT(*) AS total FROM agents").get().total,
     resources: db.prepare("SELECT COUNT(*) AS total FROM generated_resources").get().total

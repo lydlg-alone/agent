@@ -72,9 +72,7 @@ function ensureWorkspaceAgents() {
 function syncSeedKnowledgeCounts() {
   const db = getDb();
   const bases = db.prepare("SELECT id FROM knowledge_bases").all();
-  const countStmt = db.prepare(
-    "SELECT COUNT(*) AS total FROM knowledge_documents WHERE knowledge_base_id = ?"
-  );
+  const countStmt = db.prepare("SELECT COUNT(*) AS total FROM knowledge_documents WHERE knowledge_base_id = ?");
   const updateStmt = db.prepare("UPDATE knowledge_bases SET document_count = ? WHERE id = ?");
 
   for (const base of bases) {

@@ -1,5 +1,8 @@
 import { getDb } from "../config/database.js";
 import { createId } from "../utils/id.js";
+import { isBinaryDocument, parseDocumentFromUpload } from "./documentParserService.js";
+import { chunkText } from "./chunkingService.js";
+import { indexChunks, removeChunks } from "./ragService.js";
 
 const DEFAULT_KNOWLEDGE_BASE = {
   name: "默认知识库",
@@ -130,7 +133,7 @@ export function listKnowledgeDocuments(search = "") {
   return rows.map(mapKnowledgeDocument);
 }
 
-export function importKnowledgeDocuments(files = []) {
+export async function importKnowledgeDocuments(files = []) {
   const db = getDb();
   const knowledgeBase = ensureDefaultKnowledgeBase();
   const insert = db.prepare(
@@ -154,14 +157,43 @@ export function importKnowledgeDocuments(files = []) {
     created_at: new Date(now + index).toISOString()
   }));
 
-  const transaction = db.transaction(() => {
+  db.transaction(() => {
     for (const doc of docs) {
       insert.run(doc);
     }
     syncKnowledgeBaseDocumentCount(knowledgeBase.id);
-  });
+  })();
 
-  transaction();
+  for (const file of files) {
+    const doc = docs.find((d) => d.name === file.name);
+    if (!doc) {
+      continue;
+    }
+
+    if (isBinaryDocument(file.name, file.mimeType) && file.contentText) {
+      try {
+        const fullText = await parseDocumentFromUpload(file.name, file.mimeType, file.contentText);
+        if (fullText) {
+          db.prepare("UPDATE knowledge_documents SET summary = ? WHERE id = ?").run(
+            fullText.slice(0, 280),
+            doc.id
+          );
+
+          const chunks = chunkText(fullText);
+          if (chunks.length) {
+            indexChunks("knowledge_document", doc.id, doc.name, chunks);
+            db.prepare("UPDATE knowledge_documents SET chunk_count = ? WHERE id = ?").run(
+              chunks.length,
+              doc.id
+            );
+          }
+        }
+      } catch (parseError) {
+        console.error(`Failed to parse knowledge document "${file.name}":`, parseError.message);
+      }
+    }
+  }
+
   return listKnowledgeDocuments().filter((item) => docs.some((doc) => doc.id === item.id));
 }
 
@@ -169,11 +201,12 @@ export function removeKnowledgeDocument(documentId) {
   const db = getDb();
   const doc = db.prepare("SELECT knowledge_base_id FROM knowledge_documents WHERE id = ?").get(documentId);
   if (!doc) {
-    const error = new Error("Knowledge document not found");
+    const error = new Error("知识文档不存在。");
     error.statusCode = 404;
     throw error;
   }
 
+  removeChunks("knowledge_document", documentId);
   db.prepare("DELETE FROM knowledge_documents WHERE id = ?").run(documentId);
   syncKnowledgeBaseDocumentCount(doc.knowledge_base_id);
 }
@@ -181,6 +214,10 @@ export function removeKnowledgeDocument(documentId) {
 export function clearKnowledgeDocuments() {
   const db = getDb();
   const baseIds = db.prepare("SELECT DISTINCT knowledge_base_id FROM knowledge_documents").all();
+  const docIds = db.prepare("SELECT id FROM knowledge_documents").all().map((r) => r.id);
+  for (const docId of docIds) {
+    removeChunks("knowledge_document", docId);
+  }
   db.prepare("DELETE FROM knowledge_documents").run();
   for (const item of baseIds) {
     syncKnowledgeBaseDocumentCount(item.knowledge_base_id);
@@ -207,9 +244,7 @@ export function addDocument(knowledgeBaseId, payload) {
     )`
   ).run(doc);
 
-  db.prepare(
-    "UPDATE knowledge_bases SET document_count = document_count + 1 WHERE id = ?"
-  ).run(knowledgeBaseId);
+  db.prepare("UPDATE knowledge_bases SET document_count = document_count + 1 WHERE id = ?").run(knowledgeBaseId);
 
   db.prepare(
     `INSERT INTO knowledge_documents (

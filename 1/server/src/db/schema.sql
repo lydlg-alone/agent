@@ -152,3 +152,30 @@ CREATE TABLE IF NOT EXISTS knowledge_documents (
   created_at TEXT NOT NULL,
   FOREIGN KEY (knowledge_base_id) REFERENCES knowledge_bases(id)
 );
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id TEXT PRIMARY KEY,
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  source_name TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS document_chunks_fts USING fts5(
+  source_name,
+  content
+);
+
+CREATE TABLE IF NOT EXISTS connection_history (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,
+  base_url TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  success INTEGER NOT NULL DEFAULT 0,
+  latency_ms INTEGER,
+  available_models_json TEXT,
+  message TEXT,
+  created_at TEXT NOT NULL
+);

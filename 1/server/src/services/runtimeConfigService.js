@@ -7,13 +7,14 @@ import {
   writeApiConfigFile
 } from "./apiConfigFileService.js";
 import { clearInternalApiConfig, getCurrentModelConfig } from "./modelConfigService.js";
+import { recordConnection } from "./connectionHistoryService.js";
 
 function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || "").trim().replace(/\/+$/, "");
 }
 
-function buildApiUrl(baseUrl, path) {
-  return `${normalizeBaseUrl(baseUrl)}/${String(path || "").replace(/^\/+/, "")}`;
+function buildApiUrl(baseUrl, targetPath) {
+  return `${normalizeBaseUrl(baseUrl)}/${String(targetPath || "").replace(/^\/+/, "")}`;
 }
 
 function inferProvider(baseUrl, providerHint = "") {
@@ -96,16 +97,22 @@ function pickRemoteModel(models, preferredModelId = "") {
 
 function getStoredRuntimeValues() {
   const fileConfig = readApiConfigFile();
-  const currentModel = getCurrentModelConfig();
 
   return {
-    provider: String(fileConfig?.provider || currentModel?.provider || "").trim(),
-    baseUrl: String(fileConfig?.baseUrl || currentModel?.baseUrl || "").trim(),
+    provider: String(fileConfig?.provider || "").trim(),
+    baseUrl: String(fileConfig?.baseUrl || "").trim(),
     apiKey: String(fileConfig?.apiKey || "").trim(),
     systemPrompt: String(fileConfig?.systemPrompt || "").trim(),
-    modelId: String(fileConfig?.modelId || currentModel?.modelId || "").trim(),
-    updatedAt: String(fileConfig?.updatedAt || currentModel?.createdAt || "").trim(),
-    currentModel
+    modelId: String(fileConfig?.modelId || "").trim(),
+    updatedAt: String(fileConfig?.updatedAt || "").trim(),
+    currentModel: getCurrentModelConfig()
+  };
+}
+
+function buildRuntimeSettingsPayload() {
+  return {
+    settings: getRuntimeSettings(),
+    currentModel: getCurrentModelConfig()
   };
 }
 
@@ -127,12 +134,6 @@ export function getRuntimeSettings() {
     currentModel: runtime.currentModel,
     storageDirectory: getApiConfigDirectoryPath(),
     storagePath: getApiConfigFilePath()
-  };
-}
-
-function buildRuntimeSettingsPayload() {
-  return {
-    ...buildRuntimeSettingsPayload()
   };
 }
 
@@ -180,16 +181,41 @@ export async function detectCurrentModel(payload = {}) {
       if (remoteModel) {
         model = remoteModel;
       }
+      const availableModels = models
+        .filter((item) => typeof item?.id === "string" && item.id.trim())
+        .map((item) => ({ id: item.id, owned_by: item.owned_by || "" }));
+
+      recordConnection({
+        provider,
+        baseUrl,
+        modelId: model,
+        success: true,
+        latencyMs: 0,
+        availableModels,
+        message: remoteModel ? "已从远程模型列表自动识别当前模型。" : "已根据当前配置推断模型。"
+      });
+
       return {
         provider,
         model,
-        message: remoteModel ? "已从远程模型列表自动识别当前模型。" : "已根据当前配置推断模型。"
+        message: remoteModel ? "已从远程模型列表自动识别当前模型。" : "已根据当前配置推断模型。",
+        availableModels
       };
     } catch (error) {
+      recordConnection({
+        provider,
+        baseUrl,
+        modelId: model,
+        success: false,
+        latencyMs: 0,
+        message: `模型列表读取失败：${error.response?.data?.error?.message || error.message}`
+      });
+
       return {
         provider,
         model,
-        message: `模型列表读取失败，已回退为本地推断：${error.response?.data?.error?.message || error.message}`
+        message: `模型列表读取失败，已回退为本地推断：${error.response?.data?.error?.message || error.message}`,
+        availableModels: []
       };
     }
   }
@@ -197,7 +223,8 @@ export async function detectCurrentModel(payload = {}) {
   return {
     provider,
     model,
-    message: "当前未提供完整凭据，已根据配置推断模型。"
+    message: "当前未提供完整凭据，已根据配置推断模型。",
+    availableModels: []
   };
 }
 
@@ -227,8 +254,7 @@ export async function saveRuntimeSettings(payload = {}) {
 
   return {
     message: `运行配置已保存到 ${getApiConfigDirectoryPath()}`,
-    settings: getRuntimeSettings(),
-    currentModel: getCurrentModelConfig()
+    ...buildRuntimeSettingsPayload()
   };
 }
 
@@ -245,20 +271,60 @@ export async function testRuntimeSettings(payload = {}) {
       model: String(payload.modelId || current.modelId || "").trim(),
       checkedAt: new Date().toISOString(),
       latencyMs: 0,
-      message: "缺少 API Base URL 或 API Key，无法完成校验。"
+      message: "缺少 API Base URL 或 API Key，无法完成校验。",
+      availableModels: []
     };
   }
 
   const startedAt = Date.now();
-  const models = await fetchRemoteModels({ baseUrl: normalizedBaseUrl, apiKey });
+  let models = [];
+  try {
+    models = await fetchRemoteModels({ baseUrl: normalizedBaseUrl, apiKey });
+  } catch (error) {
+    const latencyMs = Date.now() - startedAt;
+    recordConnection({
+      provider,
+      baseUrl: normalizedBaseUrl,
+      modelId: String(payload.modelId || current.modelId || "").trim(),
+      success: false,
+      latencyMs,
+      message: error.response?.data?.error?.message || error.message
+    });
+
+    return {
+      success: false,
+      provider,
+      model: String(payload.modelId || current.modelId || "").trim(),
+      checkedAt: new Date().toISOString(),
+      latencyMs,
+      message: `连接失败：${error.response?.data?.error?.message || error.message}`,
+      availableModels: []
+    };
+  }
+
   const detectedModel = pickRemoteModel(models, payload.modelId || current.modelId);
+  const latencyMs = Date.now() - startedAt;
+  const availableModels = models
+    .filter((item) => typeof item?.id === "string" && item.id.trim())
+    .map((item) => ({ id: item.id, owned_by: item.owned_by || "" }));
+
+  recordConnection({
+    provider,
+    baseUrl: normalizedBaseUrl,
+    modelId: detectedModel,
+    success: true,
+    latencyMs,
+    availableModels,
+    message: `连接成功，检测到 ${models.length} 个可用模型。`
+  });
 
   return {
     success: true,
     provider,
     model: detectedModel,
     checkedAt: new Date().toISOString(),
-    latencyMs: Date.now() - startedAt,
-    message: `连接成功，检测到 ${models.length} 个可用模型。`
+    latencyMs,
+    message: `连接成功，检测到 ${models.length} 个可用模型。`,
+    availableModels
   };
 }

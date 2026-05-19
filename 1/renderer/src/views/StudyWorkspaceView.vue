@@ -49,7 +49,7 @@
 
           <div class="top-bar__actions">
             <span class="model-pill">{{ currentModelPillText }}</span>
-            <button type="button" class="clear-button" :disabled="loading.chat" title="娓呯┖鑱婂ぉ" @click="handleClearChat">
+            <button type="button" class="clear-button" :disabled="loading.chat" title="清空当前会话" @click="handleClearChat">
               <svg viewBox="0 0 24 24" class="action-icon">
                 <path
                   d="M9 3.75h6a.75.75 0 0 1 .75.75v1.5h3a.75.75 0 0 1 0 1.5h-.53l-.84 10.06A2.25 2.25 0 0 1 15.14 19.5H8.86a2.25 2.25 0 0 1-2.24-1.94L5.78 7.5H5.25a.75.75 0 0 1 0-1.5h3V4.5A.75.75 0 0 1 9 3.75Zm.75 2.25h4.5v-.75h-4.5V6Zm-.5 3.75a.75.75 0 0 0-1.5 0v5.25a.75.75 0 0 0 1.5 0V9.75Zm4 0a.75.75 0 0 0-1.5 0v5.25a.75.75 0 0 0 1.5 0V9.75Zm2.5-.75a.75.75 0 0 0-.75.75v5.25a.75.75 0 0 0 1.5 0V9.75a.75.75 0 0 0-.75-.75Z"
@@ -60,280 +60,85 @@
         </header>
 
         <div class="chat-layout">
+          <ChatHistoryPanel
+            :sessions="workspace.sessions"
+            :active-session-id="workspace.activeSessionId"
+            :loading="loading.workspace || loading.send || loading.chat"
+            @create-session="handleCreateSession"
+            @select-session="handleSelectSession"
+            @rename-session="handleRenameSession"
+            @delete-session="handleDeleteSession"
+          />
+
           <div class="chat-column">
-            <div class="chat-scroll-region scrollbar-thin">
-            <div class="quick-prompts">
-              <button
-                v-for="prompt in quickPrompts"
-                :key="prompt"
-                type="button"
-                class="quick-chip"
-                @click="composerText = prompt"
-              >
-                {{ prompt }}
-              </button>
-            </div>
+            <ChatPane
+              ref="chatPaneRef"
+              :quick-prompts="quickPrompts"
+              :messages="messages"
+              :loading-send="loading.send"
+              :workspace-loading="loading.workspace"
+              :active-agent-name="activeAgent?.name || ''"
+              :render-message-content="renderMessageContent"
+              :render-citations="renderCitations"
+              :format-message-time="formatMessageTime"
+              @select-prompt="composerText = $event"
+            />
 
-            <div class="message-list">
-              <template v-if="messages.length">
-                <article
-                  v-for="message in messages"
-                  :key="message.id"
-                  class="message-row"
-                  :class="message.role === 'user' ? 'message-row--user' : 'message-row--assistant'"
-                >
-                  <div class="message-thread" :class="{ 'message-thread--user': message.role === 'user' }">
-                    <div class="message-avatar" :class="message.role === 'user' ? 'message-avatar--user' : 'message-avatar--assistant'">
-                      {{ message.role === "user" ? "我" : "A" }}
-                    </div>
-
-                    <div class="message-thread__body">
-                      <div
-                        class="message-bubble markdown-content"
-                        :class="message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'"
-                        v-html="renderMessageContent(message.content)"
-                      ></div>
-
-                      <div class="message-time" :class="{ 'message-time--user': message.role === 'user' }">
-                        {{ formatMessageTime(message.createdAt) }}
-                        <template v-if="message.source"> 路 {{ message.source }}</template>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-
-                <div v-if="loading.send" class="message-row message-row--assistant">
-                  <div class="message-thread">
-                    <div class="message-avatar message-avatar--assistant">A</div>
-                    <div class="message-thread__body">
-                      <div class="message-bubble chat-bubble-assistant typing-bubble">
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                        <span class="typing-text">{{ activeAgent?.name || "瀛︿範鍔╂墜" }} 姝ｅ湪鏁寸悊绛旀</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <div v-else-if="!loading.workspace" class="empty-block">
-                暂无消息，输入学习任务或上传资料开始。              </div>
-            </div>
-
-            </div>
-
-            <footer class="composer-panel">
-              <div class="composer-inner">
-                <div class="composer-box">
-                  <button type="button" class="composer-attach" :disabled="loading.upload" title="瀵煎叆鐭ヨ瘑鏂囨。" @click="triggerChatFilePicker">
-                    <svg viewBox="0 0 24 24" class="composer-icon">
-                      <path
-                        d="M12 3.75a.75.75 0 0 1 .75.75v8.69l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 0 1 1.06-1.06l2.72 2.72V4.5a.75.75 0 0 1 .75-.75Zm-6 12a.75.75 0 0 1 .75.75v.75c0 .41.34.75.75.75h9a.75.75 0 0 0 .75-.75v-.75a.75.75 0 0 1 1.5 0v.75A2.25 2.25 0 0 1 17.25 19.5h-9A2.25 2.25 0 0 1 6 17.25v-.75a.75.75 0 0 1 .75-.75Z"
-                      />
-                    </svg>
-                  </button>
-
-                  <textarea
-                    ref="composerRef"
-                    v-model="composerText"
-                    class="composer-input"
-                    rows="1"
-                    placeholder="输入你的学习任务，例如：基于知识库生成 20 道测试题，并附上答案解析。"
-                    @input="resizeComposer"
-                  />
-
-                  <button type="button" class="send-button" :disabled="loading.send" @click="handleSendMessage">
-                    {{ loading.send ? "发送中" : "发送" }}
-                  </button>
-                </div>
-
-                <div class="hint-row">
-                  <span>Enter 鍙戦€侊紝Shift + Enter 鎹㈣</span>
-                  <span>{{ chatStatusText }}</span>
-                </div>
-
-                <div v-if="pendingAttachments.length" class="pending-files">
-                  <span class="pending-files__label">待发送附件</span>
-                  <span v-for="attachment in pendingAttachments" :key="attachment.id" class="attachment-chip">
-                    {{ attachment.name }}
-                  </span>
-                </div>
-              </div>
-            </footer>
+            <ComposerPanel
+              ref="composerPanelRef"
+              v-model="composerText"
+              :loading-send="loading.send"
+              :loading-upload="loading.upload"
+              :status-text="chatStatusText"
+              :pending-attachments="pendingAttachments"
+              @attach="triggerChatFilePicker"
+              @send="handleSendMessage"
+            />
           </div>
 
-          <aside class="status-panel">
-            <div class="status-panel__header">
-              <h3>协同状态</h3>
-              <p>展示模型、知识库和当前智能体状态。</p>
-            </div>
-
-            <div class="status-panel__body scrollbar-thin">
-              <article v-for="card in statusCards" :key="card.title" class="surface-card status-card">
-                <div class="status-card__head">
-                  <div class="status-card__icon" :class="card.colorClass">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path :d="card.iconPath" />
-                    </svg>
-                  </div>
-                  <h4>{{ card.title }}</h4>
-                </div>
-                <p>{{ card.content }}</p>
-              </article>
-            </div>
-          </aside>
+          <StatusPanel :cards="statusCards" />
         </div>
       </section>
 
       <section class="page-view page-view--standard" :class="{ active: currentPage === 'kb' }">
-        <div class="page-header">
-          <div>
-            <h1>知识库中心</h1>
-            <p>导入学习资料后，聊天页会把这些文档元信息带给模型。</p>
-          </div>
-
-          <div class="page-actions">
-            <button type="button" class="primary-button" :disabled="loading.importing" @click="triggerKnowledgeFilePicker">
-              瀵煎叆鏈湴鏂囨。
-            </button>
-            <button type="button" class="secondary-button" :disabled="loading.importing" @click="handleClearKnowledge">
-              清空知识库            </button>
-          </div>
-        </div>
-
-        <div class="stats-grid">
-          <div class="surface-card stats-card">
-            <p>鏂囨。鎬绘暟</p>
-            <strong>{{ knowledgeStats.totalCount }}</strong>
-          </div>
-          <div class="surface-card stats-card">
-            <p>绱澶у皬</p>
-            <strong>{{ knowledgeStats.totalSize }}</strong>
-          </div>
-          <div class="surface-card stats-card">
-            <p>最近导入</p>
-            <strong class="stats-card__truncate">{{ knowledgeStats.latestName }}</strong>
-          </div>
-        </div>
-
-        <div class="surface-card toolbar-card">
-          <div class="toolbar-search">
-            <span class="toolbar-search__icon">
-              <svg viewBox="0 0 24 24" class="search-icon">
-                <path
-                  d="M10.5 4.5a6 6 0 1 1 0 12a6 6 0 0 1 0-12Zm0-1.5a7.5 7.5 0 1 0 4.73 13.32l3.22 3.21a.75.75 0 1 0 1.06-1.06l-3.21-3.22A7.5 7.5 0 0 0 10.5 3Z"
-                />
-              </svg>
-            </span>
-            <input v-model.trim="knowledgeSearch" type="text" class="search-input" placeholder="鎼滅储鏂囨。鍚嶇О" />
-          </div>
-          <div class="toolbar-summary">{{ knowledgeSummaryText }}</div>
-        </div>
-
-        <div v-if="!filteredKnowledgeDocuments.length" class="surface-card kb-empty">
-          <div class="kb-empty__icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path :d="folderOpenIconPath" />
-            </svg>
-          </div>
-          <h3>还没有学习资料</h3>
-          <p>支持导入 PDF、Word、Markdown、TXT、PPT、CSV 等常见格式。</p>
-        </div>
-
-        <div v-else class="document-grid">
-          <article v-for="doc in filteredKnowledgeDocuments" :key="doc.id" class="surface-card document-card">
-            <div class="document-card__top">
-              <div class="document-type-badge">{{ doc.sourceType.toUpperCase() }}</div>
-              <button type="button" class="document-delete" title="鍒犻櫎鏂囨。" @click="handleDeleteKnowledgeDocument(doc.id)">
-                鍒犻櫎
-              </button>
-            </div>
-            <h3>{{ doc.name }}</h3>
-            <p>{{ doc.summary || "已登记到知识库，可在聊天页直接引用。" }}</p>
-            <div class="document-card__meta">
-              <span>{{ doc.knowledgeBaseName || "默认知识库" }}</span>
-              <span>{{ formatSize(doc.sizeBytes) }}</span>
-              <span>{{ formatDate(doc.createdAt) }}</span>
-            </div>
-          </article>
-        </div>
+        <KnowledgeList
+          v-model:search="knowledgeSearch"
+          :stats="knowledgeStats"
+          :summary-text="knowledgeSummaryText"
+          :documents="filteredKnowledgeDocuments"
+          :importing="loading.importing"
+          :folder-open-icon-path="folderOpenIconPath"
+          :format-size="formatSize"
+          :format-date="formatDate"
+          @import="triggerKnowledgeFilePicker"
+          @clear="handleClearKnowledge"
+          @delete="handleDeleteKnowledgeDocument"
+        />
       </section>
 
       <section class="page-view page-view--standard" :class="{ active: currentPage === 'settings' }">
-        <h1 class="settings-title">API 接入配置</h1>
-        <p class="settings-subtitle">如果填写 Base URL 和 API Key，聊天页会按 OpenAI 兼容格式请求 `chat/completions`。</p>
-
-        <div class="surface-card settings-card">
-          <form class="settings-form" @submit.prevent="handleSaveSettings">
-            <div>
-              <label class="field-label">当前模型</label>
-              <div class="field-inline">
-                <input
-                  v-model="settings.modelId"
-                  type="text"
-                  readonly
-                  class="text-input text-input--readonly"
-                  placeholder="保存或测试连接后自动读取当前模型"
-                />
-                <button type="button" class="secondary-button secondary-button--wide" @click="handleDetectModel">读取模型</button>
-              </div>
-              <p class="field-help">{{ settingsModelHelpText }}</p>
-            </div>
-
-            <div>
-              <label class="field-label">API Key</label>
-              <input
-                v-model="settings.apiKey"
-                type="password"
-                class="text-input"
-                :placeholder="settings.apiKeyMasked || 'sk-xxxxxxxxxxxxxxxx'"
-              />
-            </div>
-
-            <div>
-              <label class="field-label">API Base URL</label>
-              <input v-model="settings.baseUrl" type="text" class="text-input" placeholder="https://api.example.com/v1" />
-            </div>
-
-            <div>
-              <label class="field-label">系统提示词</label>
-              <textarea
-                v-model="settings.systemPrompt"
-                rows="4"
-                class="text-input text-input--textarea"
-                placeholder="定义你的学习助手角色、回答风格和约束。"
-              ></textarea>
-            </div>
-
-            <div class="settings-info-grid">
-              <div class="surface-card settings-info-card">
-                <p class="settings-info-card__title">接口约定</p>
-                <p class="settings-info-card__content">
-                  `POST /api/chat/messages`<br>
-                  `GET /api/models/current`<br>
-                  `POST /api/models/current`<br>
-                  `POST /api/models/test`<br>
-                  `POST /api/knowledge/import`<br>
-                  `POST /api/agents/:id/activate`
-                </p>
-              </div>
-
-              <div class="surface-card settings-info-card">
-                <p class="settings-info-card__title">当前状态</p>
-                <p class="settings-info-card__content">{{ settingsRuntimeStatusText }}</p>
-                <p class="settings-info-card__path">{{ settingsStorageText }}</p>
-              </div>
-            </div>
-
-            <div class="settings-actions">
-              <button type="submit" class="primary-button primary-button--stretch" :disabled="loading.settingsSave">保存配置</button>
-              <button type="button" class="secondary-button secondary-button--strong" :disabled="loading.settingsTest" @click="handleTestConnection">
-                测试连接
-              </button>
-            </div>
-          </form>
-        </div>
+        <SettingsForm
+          ref="settingsFormRef"
+          :settings="settingsDraft"
+          :loading-save="loading.settingsSave"
+          :loading-test="loading.settingsTest"
+          :runtime-status-text="settingsRuntimeStatusText"
+          :model-help-text="settingsModelHelpText"
+          :storage-text="settingsStorageText"
+          :templates="providerTemplates"
+          :recent-models="recentSuccessfulModels"
+          :connection-history="connectionHistory"
+          :available-models="availableRemoteModels"
+          @detect="handleDetectModel"
+          @save="handleSaveSettings"
+          @test="handleTestConnection"
+          @apply-template="handleApplyTemplate"
+          @select-recent-model="handleSelectRecentModel"
+          @select-available-model="handleSelectAvailableModel"
+          @export-config="handleExportConfig"
+          @import-config="handleImportConfig"
+          @clear-history="handleClearHistory"
+        />
       </section>
 
       <section class="page-view page-view--standard" :class="{ active: currentPage === 'market' }">
@@ -342,11 +147,16 @@
             <h1>智能体市场</h1>
             <p>可切换不同学习智能体，聊天页会联动当前角色。</p>
           </div>
-          <div class="market-active-text">褰撳墠婵€娲伙細<span>{{ activeAgent?.name || "榛樿瀛︿範鍔╂墜" }}</span></div>
+          <div class="market-active-text">当前激活：<span>{{ activeAgent?.name || "默认学习助手" }}</span></div>
         </div>
 
         <div class="agent-grid">
-          <article v-for="agent in marketAgents" :key="agent.id" class="surface-card market-card" :class="{ 'market-card--active': activeAgent?.id === agent.id }">
+          <article
+            v-for="agent in marketAgents"
+            :key="agent.id"
+            class="surface-card market-card"
+            :class="{ 'market-card--active': activeAgent?.id === agent.id }"
+          >
             <div class="market-card__top">
               <div class="market-card__icon" :class="getAgentAccentClass(agent)">{{ getAgentDisplayLetter(agent) }}</div>
               <span class="market-card__badge" :class="{ 'market-card__badge--active': activeAgent?.id === agent.id }">
@@ -361,10 +171,10 @@
               type="button"
               class="market-card__button"
               :class="{ 'market-card__button--active': activeAgent?.id === agent.id }"
-              :disabled="activeAgent?.id === agent.id"
+              :disabled="activeAgent?.id === agent.id || loading.agentSwitch"
               @click="handleActivateAgent(agent.id)"
             >
-              {{ activeAgent?.id === agent.id ? "已激活" : "切换到该智能体" }}
+              {{ activeAgent?.id === agent.id ? "已激活" : switchingAgentId === agent.id ? "切换中" : "切换到该智能体" }}
             </button>
           </article>
         </div>
@@ -373,31 +183,66 @@
 
     <input ref="chatFileInputRef" type="file" class="hidden-file-input" multiple @change="handleChatFileChange" />
     <input ref="knowledgeFileInputRef" type="file" class="hidden-file-input" multiple @change="handleKnowledgeFileChange" />
+    <input ref="configImportInputRef" type="file" accept=".json" class="hidden-file-input" @change="handleConfigFileChange" />
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
+import ChatPane from "@/components/workspace/ChatPane.vue";
+import ChatHistoryPanel from "@/components/workspace/ChatHistoryPanel.vue";
+import ComposerPanel from "@/components/workspace/ComposerPanel.vue";
+import KnowledgeList from "@/components/workspace/KnowledgeList.vue";
+import SettingsForm from "@/components/workspace/SettingsForm.vue";
+import StatusPanel from "@/components/workspace/StatusPanel.vue";
+import { useRuntimeSubscription } from "@/composables/useRuntimeSubscription.js";
 import {
   activateAgent,
   clearChatSession,
+  clearConnectionHistory,
   clearKnowledgeDocuments,
   createChatSession,
+  deleteChatSession,
   deleteKnowledgeDocument,
   detectCurrentModel,
+  exportModelConfig,
   fetchAgents,
+  fetchChatSessionDetail,
+  fetchConnectionHistory,
   fetchKnowledgeBases,
   fetchKnowledgeDocuments,
+  fetchProviderTemplates,
+  fetchRecentSuccessfulModels,
   fetchRuntimeSettings,
   fetchWorkspace,
   importKnowledgeFiles,
+  importModelConfig,
+  renameChatSession,
   saveRuntimeSettings,
   sendChatMessage,
-  subscribeRuntimeSettings,
+  streamChatMessage,
   testRuntimeSettings,
   uploadChatAttachment
 } from "@/services/api.js";
+import { createEmptyRuntimeDraft, useRuntimeStore } from "@/stores/runtime.js";
+import {
+  formatDate,
+  formatMessageTime,
+  formatSize,
+  getAgentAccentClass,
+  getAgentDescription,
+  getAgentDisplayLetter,
+  getAgentSpecialty,
+  getAgentTitle,
+  inferMessageSource,
+  readFileAsBase64,
+  readFileAsText,
+  renderCitations,
+  renderMessageContent,
+  shouldReadAsText
+} from "@/utils/workspaceFormatters.js";
 
 const brandIconPath =
   "M9.5 3.75c-2.35 0-4.25 1.9-4.25 4.25v1.03a3.25 3.25 0 0 0-.97 5.53A4.25 4.25 0 0 0 8.5 21h1.75A2 2 0 0 0 12 19.97A2 2 0 0 0 13.75 21h1.75a4.25 4.25 0 0 0 4.22-3.44a3.25 3.25 0 0 0-.97-5.53V8c0-2.35-1.9-4.25-4.25-4.25c-1.1 0-2.1.41-2.87 1.08A4.23 4.23 0 0 0 9.5 3.75ZM9 8.25c.41 0 .75.34.75.75v6a.75.75 0 0 1-1.5 0V9c0-.41.34-.75.75-.75Zm6 0c.41 0 .75.34.75.75v6a.75.75 0 0 1-1.5 0V9c0-.41.34-.75.75-.75ZM12 6.75c.41 0 .75.34.75.75v9a.75.75 0 0 1-1.5 0v-9c0-.41.34-.75.75-.75Z";
@@ -426,26 +271,10 @@ const iconPaths = {
 const folderOpenIconPath = iconPaths.folderOpen;
 
 const navItems = [
-  {
-    key: "chat",
-    label: "聊天",
-    iconPath: iconPaths.chat
-  },
-  {
-    key: "kb",
-    label: "知识库",
-    iconPath: iconPaths.book
-  },
-  {
-    key: "market",
-    label: "智能体",
-    iconPath: iconPaths.store
-  },
-  {
-    key: "settings",
-    label: "设置",
-    iconPath: iconPaths.settings
-  }
+  { key: "chat", label: "聊天", iconPath: iconPaths.chat },
+  { key: "kb", label: "知识库", iconPath: iconPaths.book },
+  { key: "market", label: "智能体", iconPath: iconPaths.store },
+  { key: "settings", label: "设置", iconPath: iconPaths.settings }
 ];
 
 const quickPrompts = [
@@ -455,13 +284,27 @@ const quickPrompts = [
   "把复杂内容总结成背诵提纲"
 ];
 
+const runtimeStore = useRuntimeStore();
+const {
+  chatStatusText,
+  chatSubtitleText,
+  currentModelPillText,
+  settingsModelHelpText,
+  settingsRuntimeStatusText,
+  settingsStorageText
+} = storeToRefs(runtimeStore);
+
 const currentPage = ref("chat");
-const composerRef = ref(null);
+const chatPaneRef = ref(null);
+const composerPanelRef = ref(null);
 const chatFileInputRef = ref(null);
 const knowledgeFileInputRef = ref(null);
+const settingsFormRef = ref(null);
+const configImportInputRef = ref(null);
 const composerText = ref("");
 const knowledgeSearch = ref("");
-let stopRuntimeSettingsSubscription = null;
+const switchingAgentId = ref("");
+let activeStreamAbortController = null;
 
 const loading = reactive({
   workspace: false,
@@ -469,12 +312,12 @@ const loading = reactive({
   send: false,
   upload: false,
   importing: false,
+  agentSwitch: false,
   settingsSave: false,
   settingsTest: false
 });
 
 const workspace = reactive({
-  currentModel: null,
   activeAgent: null,
   agentCatalog: [],
   sessions: [],
@@ -482,26 +325,18 @@ const workspace = reactive({
   activeSession: null
 });
 
-const settings = reactive({
-  provider: "",
-  baseUrl: "",
-  apiKey: "",
-  apiKeyMasked: "",
-  systemPrompt: "",
-  modelId: "",
-  storageDirectory: "",
-  storagePath: ""
-});
-
+const settingsDraft = reactive(createEmptyRuntimeDraft());
 const allAgents = ref([]);
 const knowledgeBases = ref([]);
 const knowledgeDocuments = ref([]);
 const pendingAttachments = ref([]);
 const messages = ref([]);
+const providerTemplates = ref([]);
+const recentSuccessfulModels = ref([]);
+const connectionHistory = ref([]);
+const availableRemoteModels = ref([]);
 
-const currentModel = computed(() => workspace.currentModel);
 const activeAgent = computed(() => workspace.activeAgent);
-const activeSession = computed(() => workspace.activeSession);
 const sessionAttachments = computed(() => workspace.activeSession?.attachments || []);
 const topNavItems = computed(() => navItems.filter((item) => item.key !== "settings"));
 const settingsNavItem = computed(() => navItems.find((item) => item.key === "settings") || navItems[0]);
@@ -539,47 +374,6 @@ const knowledgeSummaryText = computed(() => {
 
 const chatTitleText = computed(() => `${activeAgent.value?.name || "默认学习助手"} · 学习空间`);
 
-const chatSubtitleText = computed(() => {
-  const baseUrl = normalizeBaseUrlDisplay(settings.baseUrl);
-  return baseUrl ? `已连接 ${baseUrl}` : "当前使用本地模拟服务";
-});
-
-const currentModelPillText = computed(() => settings.modelId || currentModel.value?.modelId || "自动识别");
-
-const chatStatusText = computed(() =>
-  settings.baseUrl && (settings.apiKey || settings.apiKeyMasked)
-    ? "已配置直连 API，发送消息会请求真实模型"
-    : "未连接真实后端，当前使用本地模拟回复"
-);
-
-const runtimeStatusText = computed(() =>
-  settings.baseUrl && (settings.apiKey || settings.apiKeyMasked)
-    ? "已检测到 API 配置，页面将优先调用外部 AI 接口。"
-    : "未填写 API Base URL 或 API Key，当前为本地演示模式。"
-);
-
-const settingsRuntimeStatusText = computed(() => {
-  const lines = [runtimeStatusText.value];
-  if (settings.provider || currentModel.value?.provider) {
-    lines.push(`当前 Provider：${settings.provider || currentModel.value?.provider}`);
-  }
-  if (settings.modelId || currentModel.value?.modelId) {
-    lines.push(`当前模型：${settings.modelId || currentModel.value?.modelId}`);
-  }
-  return lines.join(" ");
-});
-
-const settingsModelHelpText = computed(() =>
-  currentModelPillText.value !== "自动识别"
-    ? `当前已自动识别模型：${currentModelPillText.value}`
-    : "不再手动选择模型，页面会从当前 AI 服务自动读取。"
-);
-
-const settingsStorageText = computed(() =>
-  settings.storagePath ? `配置文件位置：${settings.storagePath}` : "配置将保存在系统文档目录下的 agent API 文件夹。"
-);
-
-
 const statusCards = computed(() => {
   const active = activeAgent.value;
   return [
@@ -587,13 +381,13 @@ const statusCards = computed(() => {
       title: "知识库状态",
       content: knowledgeDocuments.value.length
         ? `已接入 ${knowledgeDocuments.value.length} 份文档，最近导入：${knowledgeDocuments.value[0].name}`
-        : "尚未导入文档，聊天将只基于通用学习策略回答。",
+        : "尚未导入文档，聊天将仅基于通用学习策略回答。",
       iconPath: iconPaths.bookOpen,
       colorClass: "status-card__icon--blue"
     },
     {
       title: "当前模型",
-      content: `${currentModelPillText.value}${settings.baseUrl ? ` · ${normalizeBaseUrlDisplay(settings.baseUrl)}` : " · 未配置直连地址"}`,
+      content: `${currentModelPillText.value}${runtimeStore.baseUrl ? ` · ${runtimeStore.normalizedBaseUrl}` : " · 未配置直连地址"}`,
       iconPath: iconPaths.microchip,
       colorClass: "status-card__icon--green"
     },
@@ -605,61 +399,112 @@ const statusCards = computed(() => {
     },
     {
       title: "接口接入",
-      content: runtimeStatusText.value,
+      content: runtimeStore.runtimeStatusText,
       iconPath: iconPaths.plug,
       colorClass: "status-card__icon--slate"
     }
   ];
 });
 
-function applyWorkspace(data) {
-  workspace.currentModel = data.currentModel || null;
-  workspace.activeAgent = data.activeAgent || null;
-  workspace.agentCatalog = data.agentCatalog || [];
-  workspace.sessions = data.sessions || [];
-  workspace.activeSessionId = data.activeSessionId || "";
-  workspace.activeSession = data.activeSession || null;
-  messages.value = (data.activeSession?.messages || []).map((item) => ({
+function mapSessionMessages(session) {
+  return (session?.messages || []).map((item) => ({
     ...item,
-    source: item.source || inferMessageSource(item)
+    source: item.source || inferMessageSource(item, runtimeStore.apiConfigured),
+    citations: item.citations || []
   }));
 }
 
-function applyRuntime(payload) {
-  const runtime = payload?.settings || payload || {};
-  settings.provider = runtime.provider || payload?.currentModel?.provider || "";
-  settings.baseUrl = runtime.baseUrl || "";
-  settings.apiKey = "";
-  settings.apiKeyMasked = runtime.apiKeyMasked || "";
-  settings.systemPrompt = runtime.systemPrompt || "";
-  settings.modelId = runtime.modelId || payload?.currentModel?.modelId || "";
-  settings.storageDirectory = runtime.storageDirectory || "";
-  settings.storagePath = runtime.storagePath || "";
+function syncSettingsDraft() {
+  Object.assign(settingsDraft, runtimeStore.createDraft());
 }
 
-async function refreshRuntimeSettings(options = {}) {
-  const payload = await fetchRuntimeSettings();
-  applyRuntime(payload);
+function buildSessionSummary(session) {
+  const latestMessage = session?.messages?.[session.messages.length - 1];
+  return {
+    id: session.id,
+    title: session.title || "新建对话",
+    status: session.status,
+    updatedAt: session.updatedAt,
+    messageCount: session.messages?.length || 0,
+    lastMessagePreview: latestMessage?.content?.slice(0, 60) || ""
+  };
+}
 
-  if (!options.preserveWorkspaceModel && payload?.currentModel) {
-    workspace.currentModel = payload.currentModel;
+function syncSessionSummary(session) {
+  if (!session?.id) {
+    return;
   }
 
+  const summary = buildSessionSummary(session);
+  const nextSessions = workspace.sessions.filter((item) => item.id !== session.id);
+  workspace.sessions = [summary, ...nextSessions].sort((left, right) => {
+    return new Date(right.updatedAt || 0).getTime() - new Date(left.updatedAt || 0).getTime();
+  });
+}
+
+function applyActiveSession(session) {
+  workspace.activeSessionId = session?.id || "";
+  workspace.activeSession = session || null;
+  messages.value = mapSessionMessages(session);
+}
+
+function appendStreamingMessages(startPayload) {
+  const userMessage = {
+    ...startPayload.userMessage,
+    source: "local",
+    citations: []
+  };
+  const assistantMessage = {
+    ...startPayload.assistantMessage,
+    content: "",
+    citations: [],
+    status: "streaming",
+    source: ""
+  };
+
+  messages.value = [...messages.value, userMessage, assistantMessage];
+  workspace.activeSessionId = startPayload.sessionId;
+  workspace.activeSession = {
+    ...(workspace.activeSession || { id: startPayload.sessionId, title: "新建对话", attachments: [], messages: [] }),
+    id: startPayload.sessionId,
+    messages: [...(workspace.activeSession?.messages || []), userMessage, assistantMessage]
+  };
+}
+
+function updateStreamingAssistant(deltaPayload) {
+  messages.value = messages.value.map((message) =>
+    message.id === deltaPayload.assistantMessageId
+      ? {
+          ...message,
+          content: deltaPayload.content,
+          status: "streaming"
+        }
+      : message
+  );
+}
+
+function applyWorkspace(data) {
+  runtimeStore.setCurrentModel(data.currentModel || null);
+  workspace.activeAgent = data.activeAgent || null;
+  workspace.agentCatalog = data.agentCatalog || [];
+  workspace.sessions = data.sessions || [];
+  applyActiveSession(data.activeSession || null);
+}
+
+async function refreshRuntimeSettings() {
+  const payload = await fetchRuntimeSettings();
+  runtimeStore.applyPayload(payload);
+  syncSettingsDraft();
   return payload;
 }
 
-function startRuntimeSettingsSubscription() {
-  stopRuntimeSettingsSubscription?.();
-  stopRuntimeSettingsSubscription = subscribeRuntimeSettings(
-    (payload) => {
-      applyRuntime(payload);
-      if (payload?.currentModel) {
-        workspace.currentModel = payload.currentModel;
-      }
-    },
-    () => {}
-  );
-}
+const { start: startRuntimeSettingsSubscription } = useRuntimeSubscription(
+  (payload) => {
+    runtimeStore.applyPayload(payload);
+    syncSettingsDraft();
+  },
+  () => {}
+);
 
 async function loadInitialData() {
   loading.workspace = true;
@@ -676,17 +521,31 @@ async function loadInitialData() {
     knowledgeDocuments.value = docs;
     knowledgeBases.value = bases;
     allAgents.value = agents;
-    applyRuntime(runtime);
+    runtimeStore.applyPayload(runtime);
+    syncSettingsDraft();
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "鍔犺浇椤甸潰鏁版嵁澶辫触"));
+    ElMessage.error(getErrorMessage(error, "加载页面数据失败"));
   } finally {
     loading.workspace = false;
-    nextTick(resizeComposer);
+    nextTick(() => {
+      composerPanelRef.value?.resizeComposer();
+    });
   }
 }
 
 async function refreshWorkspace() {
-  applyWorkspace(await fetchWorkspace());
+  const currentSessionId = workspace.activeSessionId;
+  const data = await fetchWorkspace();
+  applyWorkspace(data);
+
+  if (
+    currentSessionId &&
+    currentSessionId !== data.activeSessionId &&
+    data.sessions?.some((session) => session.id === currentSessionId)
+  ) {
+    const session = await fetchChatSessionDetail(currentSessionId);
+    applyActiveSession(session);
+  }
 }
 
 async function refreshKnowledge() {
@@ -695,8 +554,23 @@ async function refreshKnowledge() {
   knowledgeBases.value = bases;
 }
 
-async function refreshAgents() {
-  allAgents.value = await fetchAgents();
+function replaceAgentInList(agent) {
+  if (!agent?.id) {
+    return;
+  }
+
+  const nextAgents = [...allAgents.value];
+  const index = nextAgents.findIndex((item) => item.id === agent.id);
+  if (index >= 0) {
+    nextAgents[index] = {
+      ...nextAgents[index],
+      ...agent
+    };
+  } else {
+    nextAgents.push(agent);
+  }
+
+  allAgents.value = nextAgents;
 }
 
 async function ensureSessionId() {
@@ -705,13 +579,119 @@ async function ensureSessionId() {
   }
 
   const session = await createChatSession({});
-  workspace.activeSessionId = session.id;
-  workspace.activeSession = session;
-  messages.value = (session.messages || []).map((item) => ({
-    ...item,
-    source: item.source || inferMessageSource(item)
-  }));
+  applyActiveSession(session);
+  syncSessionSummary(session);
   return session.id;
+}
+
+async function handleCreateSession() {
+  loading.workspace = true;
+  try {
+    const session = await createChatSession({});
+    applyActiveSession(session);
+    syncSessionSummary(session);
+    pendingAttachments.value = [];
+    composerText.value = "";
+    nextTick(() => {
+      composerPanelRef.value?.resizeComposer();
+      chatPaneRef.value?.scrollToBottom();
+    });
+    ElMessage.success("已新建对话，并保存到历史记录");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "新建对话失败"));
+  } finally {
+    loading.workspace = false;
+  }
+}
+
+async function handleSelectSession(sessionId) {
+  if (!sessionId || sessionId === workspace.activeSessionId) {
+    return;
+  }
+
+  loading.workspace = true;
+  try {
+    const session = await fetchChatSessionDetail(sessionId);
+    applyActiveSession(session);
+    pendingAttachments.value = [];
+    nextTick(() => {
+      chatPaneRef.value?.scrollToBottom();
+    });
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "读取历史会话失败"));
+  } finally {
+    loading.workspace = false;
+  }
+}
+
+async function handleRenameSession(session) {
+  if (!session?.id) {
+    return;
+  }
+
+  const title = window.prompt("请输入新的会话名称", session.title || "新建对话");
+  if (title === null) {
+    return;
+  }
+
+  const nextTitle = title.trim();
+  if (!nextTitle || nextTitle === session.title) {
+    return;
+  }
+
+  loading.workspace = true;
+  try {
+    const updatedSession = await renameChatSession(session.id, { title: nextTitle });
+    syncSessionSummary(updatedSession);
+
+    if (workspace.activeSessionId === updatedSession.id) {
+      workspace.activeSession = {
+        ...workspace.activeSession,
+        title: updatedSession.title,
+        updatedAt: updatedSession.updatedAt
+      };
+    }
+
+    ElMessage.success("会话已重命名");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "重命名会话失败"));
+  } finally {
+    loading.workspace = false;
+  }
+}
+
+async function handleDeleteSession(session) {
+  if (!session?.id) {
+    return;
+  }
+
+  const confirmed = window.confirm(`确认删除会话“${session.title || "新建对话"}”吗？`);
+  if (!confirmed) {
+    return;
+  }
+
+  const deletingActiveSession = session.id === workspace.activeSessionId;
+
+  loading.workspace = true;
+  try {
+    const data = await deleteChatSession(session.id);
+    workspace.sessions = data.sessions || [];
+
+    if (deletingActiveSession) {
+      applyActiveSession(data.activeSession || null);
+    } else if (!workspace.sessions.some((item) => item.id === workspace.activeSessionId)) {
+      applyActiveSession(data.activeSession || null);
+    }
+
+    nextTick(() => {
+      chatPaneRef.value?.scrollToBottom();
+    });
+    ElMessage.success("会话已删除");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "删除会话失败"));
+  } finally {
+    loading.workspace = false;
+  }
 }
 
 function triggerChatFilePicker() {
@@ -731,15 +711,12 @@ async function handleClearChat() {
   try {
     const session = await clearChatSession(workspace.activeSessionId);
     workspace.activeSession = session;
-    messages.value = (session.messages || []).map((item) => ({
-      ...item,
-      source: item.source || inferMessageSource(item)
-    }));
+    messages.value = mapSessionMessages(session);
     pendingAttachments.value = [];
+    syncSessionSummary(session);
     ElMessage.success("当前会话已清空");
-    await refreshWorkspace();
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "娓呯┖鑱婂ぉ澶辫触"));
+    ElMessage.error(getErrorMessage(error, "清空聊天失败"));
   } finally {
     loading.chat = false;
   }
@@ -754,20 +731,45 @@ async function handleSendMessage() {
   loading.send = true;
   try {
     const sessionId = await ensureSessionId();
-    await sendChatMessage({
+    const payload = {
       sessionId,
       content: composerText.value.trim() || "请结合我刚上传的资料给出分析。",
       attachmentIds: pendingAttachments.value.map((item) => item.id)
-    });
+    };
 
     composerText.value = "";
     pendingAttachments.value = [];
+    composerPanelRef.value?.resizeComposer();
+
+    activeStreamAbortController?.abort();
+    activeStreamAbortController = new AbortController();
+
+    await streamChatMessage(payload, {
+      signal: activeStreamAbortController.signal,
+      onStart(startPayload) {
+        appendStreamingMessages(startPayload);
+        nextTick(() => {
+          chatPaneRef.value?.scrollToBottom();
+        });
+      },
+      onDelta(deltaPayload) {
+        updateStreamingAssistant(deltaPayload);
+        nextTick(() => {
+          chatPaneRef.value?.scrollToBottom();
+        });
+      }
+    });
+
     await refreshWorkspace();
     nextTick(() => {
-      resizeComposer();
-      scrollMessagesToBottom();
+      composerPanelRef.value?.resizeComposer();
+      chatPaneRef.value?.scrollToBottom();
     });
   } catch (error) {
+    if (error?.name === "AbortError") {
+      return;
+    }
+
     if (isTimeoutError(error)) {
       try {
         await refreshWorkspace();
@@ -778,8 +780,15 @@ async function handleSendMessage() {
       return;
     }
 
+    try {
+      await refreshWorkspace();
+    } catch {
+      // Ignore refresh failures after stream errors.
+    }
+
     ElMessage.error(getErrorMessage(error, "发送消息失败"));
   } finally {
+    activeStreamAbortController = null;
     loading.send = false;
   }
 }
@@ -798,7 +807,13 @@ async function handleChatFileChange(event) {
     const uploaded = [];
 
     for (const file of files) {
-      const contentText = shouldReadAsText(file) ? await readFileAsText(file) : "";
+      let contentText;
+      if (shouldReadAsText(file)) {
+        contentText = await readFileAsText(file);
+      } else {
+        contentText = await readFileAsBase64(file);
+      }
+
       const data = await uploadChatAttachment({
         sessionId,
         name: file.name,
@@ -816,7 +831,7 @@ async function handleChatFileChange(event) {
     };
     ElMessage.success(`已加入 ${uploaded.length} 个会话附件`);
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "涓婁紶闄勪欢澶辫触"));
+    ElMessage.error(getErrorMessage(error, "上传附件失败"));
   } finally {
     loading.upload = false;
   }
@@ -834,11 +849,18 @@ async function handleKnowledgeFileChange(event) {
   try {
     const payload = [];
     for (const file of files) {
+      let contentText;
+      if (shouldReadAsText(file)) {
+        contentText = await readFileAsText(file);
+      } else {
+        contentText = await readFileAsBase64(file);
+      }
+
       payload.push({
         name: file.name,
         mimeType: file.type || "application/octet-stream",
         sizeBytes: file.size,
-        contentText: shouldReadAsText(file) ? await readFileAsText(file) : ""
+        contentText
       });
     }
 
@@ -846,7 +868,7 @@ async function handleKnowledgeFileChange(event) {
     await refreshKnowledge();
     ElMessage.success(`已导入 ${files.length} 份知识文档`);
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "瀵煎叆鐭ヨ瘑鏂囨。澶辫触"));
+    ElMessage.error(getErrorMessage(error, "导入知识文档失败"));
   } finally {
     loading.importing = false;
   }
@@ -858,7 +880,7 @@ async function handleDeleteKnowledgeDocument(documentId) {
     await refreshKnowledge();
     ElMessage.success("文档已删除");
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, "鍒犻櫎鏂囨。澶辫触"));
+    ElMessage.error(getErrorMessage(error, "删除文档失败"));
   }
 }
 
@@ -867,7 +889,7 @@ async function handleClearKnowledge() {
   try {
     await clearKnowledgeDocuments();
     await refreshKnowledge();
-    ElMessage.success("鐭ヨ瘑搴撳凡娓呯┖");
+    ElMessage.success("知识库已清空");
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "清空知识库失败"));
   } finally {
@@ -876,44 +898,62 @@ async function handleClearKnowledge() {
 }
 
 async function handleActivateAgent(agentId) {
+  const nextAgent = allAgents.value.find((item) => item.id === agentId);
+  if (!nextAgent || loading.agentSwitch) {
+    return;
+  }
+
+  const previousAgent = workspace.activeAgent ? { ...workspace.activeAgent } : null;
+  switchingAgentId.value = agentId;
+  loading.agentSwitch = true;
+
   try {
-    await activateAgent(agentId);
-    await Promise.all([refreshWorkspace(), refreshAgents()]);
-    ElMessage.success("宸插垏鎹㈠涔犳櫤鑳戒綋");
+    workspace.activeAgent = nextAgent;
+    const activatedAgent = await activateAgent(agentId);
+    workspace.activeAgent = activatedAgent || nextAgent;
+    replaceAgentInList(activatedAgent || nextAgent);
+    ElMessage.success("已切换学习智能体");
   } catch (error) {
+    workspace.activeAgent = previousAgent;
     ElMessage.error(getErrorMessage(error, "切换智能体失败"));
+  } finally {
+    loading.agentSwitch = false;
+    switchingAgentId.value = "";
   }
 }
 
-async function handleDetectModel() {
+async function handleDetectModel(payload) {
   try {
     const data = await detectCurrentModel({
-      baseUrl: settings.baseUrl,
-      apiKey: settings.apiKey,
-      provider: settings.provider,
-      modelId: settings.modelId
+      baseUrl: payload.baseUrl,
+      apiKey: payload.apiKey,
+      provider: payload.provider,
+      modelId: payload.modelId
     });
 
-    settings.provider = data.provider || settings.provider;
-    settings.modelId = data.model || settings.modelId;
+    settingsDraft.provider = data.provider || payload.provider;
+    settingsDraft.modelId = data.model || payload.modelId;
+    availableRemoteModels.value = data.availableModels || [];
+    await refreshConnectionData();
     ElMessage.success(data.message || "已识别当前模型");
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "识别模型失败"));
   }
 }
 
-async function handleSaveSettings() {
+async function handleSaveSettings(payload) {
   loading.settingsSave = true;
   try {
     const data = await saveRuntimeSettings({
-      provider: settings.provider,
-      baseUrl: settings.baseUrl,
-      apiKey: settings.apiKey,
-      systemPrompt: settings.systemPrompt,
-      modelId: settings.modelId
+      provider: payload.provider,
+      baseUrl: payload.baseUrl,
+      apiKey: payload.apiKey,
+      systemPrompt: payload.systemPrompt,
+      modelId: payload.modelId
     });
 
-    applyRuntime(data);
+    runtimeStore.applyPayload(data);
+    syncSettingsDraft();
     await refreshWorkspace();
     ElMessage.success(data.message || "配置已保存");
   } catch (error) {
@@ -923,16 +963,18 @@ async function handleSaveSettings() {
   }
 }
 
-async function handleTestConnection() {
+async function handleTestConnection(payload) {
   loading.settingsTest = true;
   try {
     const data = await testRuntimeSettings({
-      provider: settings.provider,
-      baseUrl: settings.baseUrl,
-      apiKey: settings.apiKey || "",
-      modelId: settings.modelId
+      provider: payload.provider,
+      baseUrl: payload.baseUrl,
+      apiKey: payload.apiKey || "",
+      modelId: payload.modelId
     });
 
+    availableRemoteModels.value = data.availableModels || [];
+    await refreshConnectionData();
     ElMessage[data.success ? "success" : "warning"](data.message || "测试完成");
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "测试连接失败"));
@@ -941,202 +983,103 @@ async function handleTestConnection() {
   }
 }
 
-function resizeComposer() {
-  const element = composerRef.value;
-  if (!element) {
-    return;
-  }
-
-  element.style.height = "auto";
-  element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+function handleApplyTemplate(tpl) {
+  settingsDraft.baseUrl = tpl.baseUrl;
+  settingsDraft.modelId = tpl.defaultModel;
+  settingsDraft.provider = tpl.id !== "custom" ? tpl.name : settingsDraft.provider;
 }
 
-function scrollMessagesToBottom() {
-  const element = document.querySelector(".chat-scroll-region");
-  if (element) {
-    element.scrollTop = element.scrollHeight;
+function handleSelectRecentModel(item) {
+  settingsDraft.provider = item.provider || settingsDraft.provider;
+  settingsDraft.baseUrl = item.baseUrl || settingsDraft.baseUrl;
+  settingsDraft.modelId = item.modelId || settingsDraft.modelId;
+  ElMessage.success(`已切换至 ${item.provider} · ${item.modelId}`);
+}
+
+function handleSelectAvailableModel() {
+  ElMessage.success(`已选择模型：${settingsDraft.modelId}`);
+}
+
+async function handleExportConfig() {
+  try {
+    const config = await exportModelConfig();
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `agent-config-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    ElMessage.success("配置已导出");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "导出配置失败"));
   }
 }
 
-function shouldReadAsText(file) {
-  const textExtensions = [".md", ".txt", ".json", ".js", ".ts", ".html", ".css", ".csv"];
-  return (
-    file.type.startsWith("text/") ||
-    textExtensions.some((extension) => file.name.toLowerCase().endsWith(extension))
-  );
+function handleImportConfig() {
+  configImportInputRef.value?.click();
 }
 
-function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error(`璇诲彇鏂囦欢澶辫触锛?{file.name}`));
-    reader.readAsText(file, "utf-8");
-  });
+async function handleConfigFileChange(event) {
+  const files = event.target.files;
+  event.target.value = "";
+  if (!files?.length) return;
+
+  try {
+    const text = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(files[0]);
+    });
+
+    const config = JSON.parse(text);
+    const result = await importModelConfig(config);
+    runtimeStore.applyPayload(result);
+    syncSettingsDraft();
+    await refreshWorkspace();
+    ElMessage.success(result.message || "配置已导入");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "导入配置失败，请检查文件格式"));
+  }
 }
 
-function formatSize(bytes) {
-  const size = Number(bytes) || 0;
-  if (size < 1024) {
-    return `${size} B`;
+async function handleClearHistory() {
+  try {
+    await clearConnectionHistory();
+    connectionHistory.value = [];
+    ElMessage.success("连接历史已清空");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "清空历史失败"));
   }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDate(value) {
-  if (!value) {
-    return "-";
+async function loadSettingsPageData() {
+  try {
+    const [templates, history, recent] = await Promise.all([
+      fetchProviderTemplates(),
+      fetchConnectionHistory(),
+      fetchRecentSuccessfulModels()
+    ]);
+    providerTemplates.value = templates;
+    connectionHistory.value = history;
+    recentSuccessfulModels.value = recent;
+  } catch {
+    // Non-critical; settings page still works without this data.
   }
-
-  return new Date(value).toLocaleDateString("zh-CN");
 }
 
-function formatMessageTime(value) {
-  if (!value) {
-    return "";
+async function refreshConnectionData() {
+  try {
+    const [history, recent] = await Promise.all([
+      fetchConnectionHistory(),
+      fetchRecentSuccessfulModels()
+    ]);
+    connectionHistory.value = history;
+    recentSuccessfulModels.value = recent;
+  } catch {
+    // Non-critical.
   }
-
-  return new Date(value).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function normalizeBaseUrlDisplay(baseUrl) {
-  return String(baseUrl || "").trim().replace(/\/+$/, "");
-}
-
-function inferMessageSource(message) {
-  if (message.role !== "assistant") {
-    return "local";
-  }
-
-  return settings.baseUrl && (settings.apiKey || settings.apiKeyMasked) ? "api" : "mock";
-}
-
-function renderMessageContent(content) {
-  const source = String(content || "").replace(/\r\n/g, "\n").trim();
-  if (!source) {
-    return "<p></p>";
-  }
-
-  const blocks = source.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-  return blocks.map(renderMarkdownBlock).join("");
-}
-
-function renderMarkdownBlock(block) {
-  if (block.startsWith("```") && block.endsWith("```")) {
-    const codeContent = block.replace(/^```[\w-]*\n?/, "").replace(/\n?```$/, "");
-    return `<pre class="md-pre"><code>${escapeHtml(codeContent)}</code></pre>`;
-  }
-
-  const lines = block.split("\n");
-
-  if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
-    const items = lines
-      .map((line) => line.replace(/^\s*[-*]\s+/, "").trim())
-      .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
-      .join("");
-    return `<ul class="md-list">${items}</ul>`;
-  }
-
-  if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
-    const items = lines
-      .map((line) => line.replace(/^\s*\d+\.\s+/, "").trim())
-      .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
-      .join("");
-    return `<ol class="md-list md-list--ordered">${items}</ol>`;
-  }
-
-  if (lines.length === 1 && /^#{1,3}\s+/.test(lines[0])) {
-    const level = Math.min((lines[0].match(/^#+/)?.[0].length || 1) + 2, 6);
-    const text = lines[0].replace(/^#{1,3}\s+/, "");
-    return `<h${level} class="md-heading">${renderInlineMarkdown(text)}</h${level}>`;
-  }
-
-  return `<p>${lines.map((line) => renderInlineMarkdown(line)).join("<br>")}</p>`;
-}
-
-function renderInlineMarkdown(text) {
-  let html = escapeHtml(String(text || ""));
-  html = html.replace(/`([^`]+)`/g, "<code class=\"md-inline-code\">$1</code>");
-  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
-  return html;
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function getAgentDisplayLetter(agent) {
-  const role = String(agent.role || "").toLowerCase();
-  if (role.includes("politics")) {
-    return "政";
-  }
-  if (role.includes("coding")) {
-    return "码";
-  }
-  return "学";
-}
-
-function getAgentAccentClass(agent) {
-  const role = String(agent.role || "").toLowerCase();
-  if (role.includes("politics")) {
-    return "market-card__icon--orange";
-  }
-  if (role.includes("coding")) {
-    return "market-card__icon--emerald";
-  }
-  return "market-card__icon--blue";
-}
-
-function getAgentTitle(agent) {
-  const role = String(agent.role || "").toLowerCase();
-  if (role.includes("politics")) {
-    return "政治知识梳理";
-  }
-  if (role.includes("coding")) {
-    return "编程训练";
-  }
-  return "综合学习规划";
-}
-
-function getAgentDescription(agent) {
-  const role = String(agent.role || "").toLowerCase();
-  if (role.includes("politics")) {
-    return "适合主观题框架拆解、观点提炼和记忆提纲整理。";
-  }
-  if (role.includes("coding")) {
-    return "适合代码解释、错误定位、练习设计和学习路线规划。";
-  }
-  return "适合日常问答、知识梳理、计划拆解和学习总结。";
-}
-
-function getAgentSpecialty(agent) {
-  const scope = String(agent.knowledgeScope || "").trim();
-  if (scope) {
-    return `擅长范围：${scope}`;
-  }
-
-  const role = String(agent.role || "").toLowerCase();
-  if (role.includes("politics")) {
-    return "擅长总结答题模板和论述结构。";
-  }
-  if (role.includes("coding")) {
-    return "擅长定位错误原因并给出改写建议。";
-  }
-  return "擅长把模糊任务拆成清晰步骤。";
 }
 
 function getErrorMessage(error, fallback) {
@@ -1158,37 +1101,24 @@ watch(currentPage, async (page) => {
   }
 
   try {
-    await refreshRuntimeSettings();
+    await Promise.all([refreshRuntimeSettings(), loadSettingsPageData()]);
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "读取配置文件失败"));
   }
-});
-
-onBeforeUnmount(() => {
-  stopRuntimeSettingsSubscription?.();
-  stopRuntimeSettingsSubscription = null;
 });
 </script>
 
 <style scoped>
 :root {
   --main-blue: #005fb8;
-  --deep-blue: #004a8f;
-  --light-blue: #eef6ff;
-  --panel-border: #dce8f5;
-}
-
-* {
-  box-sizing: border-box;
+  --panel-border: rgba(208, 223, 243, 0.9);
 }
 
 .study-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top right, rgba(0, 95, 184, 0.12), transparent 24%),
-    linear-gradient(135deg, #eef5ff 0%, #f7fbff 48%, #edf4ff 100%);
+  background: linear-gradient(180deg, #f5f9ff 0%, #f7fbff 48%, #edf4ff 100%);
   color: #1f2937;
 }
 
@@ -1254,6 +1184,7 @@ onBeforeUnmount(() => {
 
 .workspace-main {
   flex: 1;
+  height: 100vh;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1271,8 +1202,8 @@ onBeforeUnmount(() => {
 }
 
 .page-view--chat {
-  height: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   flex-direction: column;
   overflow: hidden;
 }
@@ -1363,379 +1294,20 @@ onBeforeUnmount(() => {
 
 .chat-layout {
   flex: 1;
+  height: calc(100vh - 64px);
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
   overflow: hidden;
 }
 
 .chat-column {
-  display: flex;
-  flex-direction: column;
+  height: 100%;
   min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   position: relative;
   overflow: hidden;
-}
-
-.chat-scroll-region {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.quick-prompts {
-  width: min(100%, 1320px);
-  margin: 0 auto;
-  box-sizing: border-box;
-  padding: 24px 32px 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.quick-chip {
-  padding: 10px 16px;
-  border: 1px solid #dbeafe;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #475569;
-  font-size: 14px;
-  cursor: pointer;
-  transition: 0.2s ease-in-out;
-}
-
-.quick-chip:hover {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.message-list {
-  min-height: 100%;
-  padding: 8px 32px 220px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  scroll-padding-bottom: 220px;
-}
-
-.message-row {
-  display: flex;
-  width: min(100%, 1320px);
-  margin: 0 auto;
-}
-
-.message-row--assistant {
-  justify-content: flex-start;
-}
-
-.message-row--user {
-  justify-content: flex-end;
-}
-
-.message-thread {
-  max-width: min(896px, 100%);
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.message-thread--user {
-  flex-direction: row-reverse;
-}
-
-.message-thread__body {
-  max-width: min(768px, 100%);
-}
-
-.message-avatar {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.message-avatar--assistant {
-  background: #dbeafe;
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
-}
-
-.message-avatar--user {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.message-bubble {
-  padding: 16px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  line-height: 1.75;
-  font-size: 14px;
-  word-break: break-word;
-}
-
-.chat-bubble-user {
-  background: linear-gradient(135deg, #005fb8, #0c78da);
-  color: #ffffff;
-  border-radius: 18px 4px 18px 18px;
-}
-
-.chat-bubble-assistant {
-  background: #ffffff;
-  border: 1px solid #dbe5f0;
-  border-radius: 4px 18px 18px 18px;
-  color: #374151;
-}
-
-.message-time {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.message-time--user {
-  text-align: right;
-}
-
-.typing-bubble {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.typing-text {
-  margin-left: 4px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.typing-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #60a5fa;
-  animation: pulse 1.1s infinite ease-in-out;
-}
-
-.typing-dot:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.composer-panel {
-  position: sticky;
-  bottom: 0;
-  z-index: 8;
-  margin-top: auto;
-  padding: 20px 32px 24px;
-  background: linear-gradient(180deg, rgba(245, 249, 255, 0.05) 0%, rgba(255, 255, 255, 0.94) 20%, rgba(255, 255, 255, 0.98) 100%);
-  border-top: 1px solid #dbeafe;
-  box-shadow: 0 -10px 30px rgba(148, 163, 184, 0.08);
-  backdrop-filter: blur(12px);
-}
-
-.composer-inner {
-  max-width: 1320px;
-  margin: 0 auto;
-}
-
-.composer-box {
-  display: flex;
-  align-items: flex-start;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 24px;
-  background: #f9fafb;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-}
-
-.composer-attach {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.composer-attach:hover {
-  color: #3b82f6;
-}
-
-.composer-icon {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-}
-
-.composer-input {
-  flex: 1;
-  min-height: 48px;
-  max-height: 160px;
-  border: none;
-  background: transparent;
-  padding: 12px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #1f2937;
-  outline: none;
-  resize: none;
-}
-
-.send-button {
-  min-width: 96px;
-  height: 48px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: 18px;
-  background: #005fb8;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.send-button:hover {
-  background: #1d4ed8;
-}
-
-.hint-row {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.pending-files {
-  margin-top: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pending-files__label {
-  font-size: 12px;
-  color: #6b7280;
-  align-self: center;
-}
-
-.status-panel {
-  display: none;
-  flex-direction: column;
-  border-left: 1px solid #dbeafe;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(10px);
-}
-
-.status-panel__header {
-  padding: 24px;
-  border-bottom: 1px solid #dbeafe;
-}
-
-.status-panel__header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.status-panel__header p {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.status-panel__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.surface-card {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid var(--panel-border);
-  backdrop-filter: blur(10px);
-}
-
-.status-card {
-  padding: 16px;
-  border-radius: 16px;
-}
-
-.status-card__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.status-card__head h4 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.status-card__icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-}
-
-.status-card__icon svg {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-}
-
-.status-card__icon--blue {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.status-card__icon--green {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.status-card__icon--orange {
-  background: #fff7ed;
-  color: #ea580c;
-}
-
-.status-card__icon--slate {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.status-card p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: #4b5563;
 }
 
 .page-header {
@@ -1746,348 +1318,17 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
-.page-header h1,
-.settings-title {
+.page-header h1 {
   margin: 0;
   font-size: 30px;
   font-weight: 700;
   color: #1f2937;
 }
 
-.page-header p,
-.settings-subtitle {
+.page-header p {
   margin: 8px 0 0;
   font-size: 14px;
   color: #6b7280;
-}
-
-.page-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.primary-button,
-.secondary-button {
-  border: none;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s ease-in-out;
-}
-
-.primary-button {
-  padding: 10px 20px;
-  background: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
-}
-
-.primary-button:hover {
-  background: #1d4ed8;
-}
-
-.secondary-button {
-  padding: 10px 20px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  color: #4b5563;
-}
-
-.secondary-button:hover {
-  background: #f9fafb;
-}
-
-.secondary-button--wide {
-  min-width: 110px;
-}
-
-.secondary-button--strong {
-  padding-left: 24px;
-  padding-right: 24px;
-}
-
-.primary-button--stretch {
-  flex: 1;
-}
-
-.stats-grid {
-  margin-bottom: 24px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.stats-card {
-  padding: 20px;
-  border-radius: 20px;
-}
-
-.stats-card p {
-  margin: 0;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.stats-card strong {
-  display: block;
-  margin-top: 12px;
-  font-size: 30px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.stats-card__truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 18px;
-}
-
-.toolbar-card {
-  margin-bottom: 24px;
-  padding: 16px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.toolbar-search {
-  position: relative;
-  flex: 1;
-}
-
-.toolbar-search__icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-}
-
-.search-icon {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
-}
-
-.search-input,
-.text-input {
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  background: #f9fafb;
-  padding: 12px 16px;
-  font-size: 14px;
-  color: #1f2937;
-  outline: none;
-}
-
-.search-input {
-  padding-left: 44px;
-}
-
-.text-input--readonly {
-  background: #f3f4f6;
-  color: #4b5563;
-}
-
-.text-input--textarea {
-  resize: vertical;
-  min-height: 110px;
-}
-
-.toolbar-summary {
-  font-size: 14px;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.kb-empty {
-  padding: 56px;
-  border: 2px dashed #d1d5db;
-  border-radius: 24px;
-  text-align: center;
-  color: #6b7280;
-}
-
-.kb-empty__icon {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.kb-empty__icon svg {
-  width: 28px;
-  height: 28px;
-  fill: currentColor;
-}
-
-.kb-empty h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #374151;
-}
-
-.kb-empty p {
-  margin: 8px 0 0;
-  font-size: 14px;
-}
-
-.document-grid,
-.agent-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 24px;
-}
-
-.document-card {
-  padding: 20px;
-  border-radius: 24px;
-}
-
-.document-card__top {
-  margin-bottom: 16px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.document-type-badge {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 18px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.document-delete {
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.document-delete:hover {
-  color: #ef4444;
-}
-
-.document-card h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #1f2937;
-  word-break: break-all;
-}
-
-.document-card p {
-  margin: 8px 0 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: #6b7280;
-}
-
-.document-card__meta {
-  margin-top: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.settings-title {
-  margin-bottom: 12px;
-}
-
-.settings-subtitle {
-  margin-bottom: 32px;
-}
-
-.settings-card {
-  max-width: 768px;
-  padding: 32px;
-  border-radius: 24px;
-}
-
-.settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.field-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.field-inline {
-  display: flex;
-  gap: 12px;
-}
-
-.field-help {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.settings-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.settings-info-card {
-  padding: 16px;
-  border-radius: 16px;
-}
-
-.settings-info-card__title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.settings-info-card__content {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.8;
-  color: #6b7280;
-}
-
-.settings-info-card__path {
-  margin: 12px 0 0;
-  font-size: 12px;
-  line-height: 1.7;
-  color: #475569;
-  word-break: break-all;
-}
-
-.settings-actions {
-  display: flex;
-  gap: 16px;
 }
 
 .market-active-text {
@@ -2098,6 +1339,18 @@ onBeforeUnmount(() => {
 .market-active-text span {
   font-weight: 700;
   color: #2563eb;
+}
+
+.surface-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(10px);
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
 }
 
 .market-card {
@@ -2201,101 +1454,13 @@ onBeforeUnmount(() => {
   color: #ffffff;
 }
 
-.empty-block {
-  padding: 56px;
-  text-align: center;
-  color: #6b7280;
-}
-
-.attachment-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #2563eb;
-  font-size: 12px;
-}
-
-.scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.45);
-  border-radius: 999px;
-}
-
-.markdown-content :deep(p),
-.markdown-content :deep(ul),
-.markdown-content :deep(ol),
-.markdown-content :deep(pre),
-.markdown-content :deep(h3),
-.markdown-content :deep(h4),
-.markdown-content :deep(h5) {
-  margin: 0;
-}
-
-.markdown-content :deep(p + p),
-.markdown-content :deep(p + ul),
-.markdown-content :deep(p + ol),
-.markdown-content :deep(ul + p),
-.markdown-content :deep(ol + p),
-.markdown-content :deep(pre + p),
-.markdown-content :deep(p + pre),
-.markdown-content :deep(h3 + p),
-.markdown-content :deep(h4 + p),
-.markdown-content :deep(h5 + p) {
-  margin-top: 12px;
-}
-
-.markdown-content :deep(.md-heading) {
-  font-size: 16px;
-  line-height: 1.5;
-  font-weight: 700;
-}
-
-.markdown-content :deep(.md-list) {
-  padding-left: 20px;
-  display: grid;
-  gap: 8px;
-}
-
-.markdown-content :deep(.md-inline-code) {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.08);
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 13px;
-}
-
-.chat-bubble-user :deep(.md-inline-code) {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.markdown-content :deep(.md-pre) {
-  overflow: auto;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-
-.markdown-content :deep(.md-pre code) {
-  white-space: pre-wrap;
-  font-family: "Consolas", "Courier New", monospace;
+.hidden-file-input {
+  display: none;
 }
 
 button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
-}
-
-.hidden-file-input {
-  display: none;
 }
 
 @keyframes fadeIn {
@@ -2309,34 +1474,9 @@ button:disabled {
   }
 }
 
-@keyframes pulse {
-  0%,
-  80%,
-  100% {
-    opacity: 0.35;
-    transform: translateY(0);
-  }
-  40% {
-    opacity: 1;
-    transform: translateY(-3px);
-  }
-}
-
-@media (min-width: 1280px) {
-  .status-panel {
-    display: flex;
-  }
-}
-
 @media (max-width: 1279px) {
   .chat-layout {
     grid-template-columns: 1fr;
-  }
-
-  .status-panel {
-    display: flex;
-    border-left: none;
-    border-top: 1px solid #dbeafe;
   }
 }
 
@@ -2358,41 +1498,15 @@ button:disabled {
   }
 
   .page-view--standard,
-  .quick-prompts,
-  .message-list,
-  .composer-panel,
   .top-bar {
     padding-left: 20px;
     padding-right: 20px;
   }
 
   .top-bar,
-  .page-header,
-  .toolbar-card,
-  .hint-row,
-  .field-inline,
-  .settings-actions,
-  .document-card__meta {
+  .page-header {
     flex-direction: column;
     align-items: flex-start;
   }
-
-  .composer-box,
-  .stats-grid,
-  .settings-info-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .composer-box {
-    gap: 8px;
-  }
-
-  .settings-card {
-    max-width: none;
-  }
 }
 </style>
-
-
-

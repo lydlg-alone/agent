@@ -51,7 +51,21 @@ export function plan(payload) {
 
 export function generateResource(payload) {
   const db = getDb();
-  const content = `# ${payload.topic}\n\n- 学习目标：${payload.goal}\n- 难度：${payload.difficulty}\n- 资源类型：${payload.resourceType}\n\n## 关键知识点\n1. 核心概念定义\n2. 常见易错点\n3. 典型例题拆解\n\n## 学习建议\n- 先阅读概念摘要\n- 再完成 3 道对应练习题\n- 最后复盘错题原因`;
+  const content = `# ${payload.topic}
+
+- 学习目标：${payload.goal}
+- 难度：${payload.difficulty}
+- 资源类型：${payload.resourceType}
+
+## 关键知识点
+1. 核心概念定义
+2. 常见易错点
+3. 典型例题拆解
+
+## 学习建议
+- 先阅读概念摘要
+- 再完成 3 道对应练习题
+- 最后复盘错题原因`;
 
   const record = {
     id: createId("res"),

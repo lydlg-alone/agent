@@ -71,9 +71,16 @@ function mapAgent(agent) {
   };
 }
 
+function getAgentById(agentId) {
+  ensureMarketAgents();
+  const agent = getDb().prepare("SELECT * FROM agents WHERE id = ?").get(agentId);
+  return agent ? mapAgent(agent) : null;
+}
+
 export function listAgents() {
   ensureMarketAgents();
   const db = getDb();
+
   return db
     .prepare(
       `SELECT *
@@ -99,9 +106,9 @@ export function getActiveAgent() {
 }
 
 export function activateAgent(agentId) {
-  const agent = getMarketAgents().find((item) => item.id === agentId);
-  if (!agent) {
-    const error = new Error("Agent not found");
+  const agent = getAgentById(agentId);
+  if (!agent || agent.isSystem) {
+    const error = new Error("智能体不存在。");
     error.statusCode = 404;
     throw error;
   }
