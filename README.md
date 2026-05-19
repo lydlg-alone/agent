@@ -1,211 +1,114 @@
-# AI 学习多智能体工作台
+# 基于大模型的智能体学习桌面应用
 
-本项目是一个基于 `Electron + Vue 3 + Node.js + SQLite` 的桌面端学习系统，围绕"模型配置、知识库、智能体编排、聊天协作、RAG 检索增强、资源生成、练习反馈"构建本地化学习闭环。
+这是一个基于 `Electron + Vue 3 + Express + SQLite` 的本地桌面学习软件。项目围绕“学习工作区”展开，支持 AI 聊天、历史会话、知识库导入、检索增强回答、智能体切换，以及外部模型配置。
 
-当前代码已落地为一个可运行的桌面应用原型，包含真实前后端分层、数据库持久化、聊天工作区页面、RAG 文档解析与检索召回、本地 API 服务。
+## 当前能力
 
-## 1. 当前能力
+- 学习工作区：固定布局聊天页，消息区独立滚动
+- 历史会话：新建、切换、重命名、删除、清空
+- 流式聊天：AI 回复按分片实时输出
+- 知识库：导入文档、查看列表、删除文档、清空知识库
+- 检索增强：上传资料后按分块建立索引，聊天时自动召回相关片段
+- 引用展示：聊天回答可携带来源文档信息
+- 智能体切换：工作区支持切换当前学习智能体
+- 运行时配置：从系统“文档”目录读取和保存 API 配置
+- 配置实时刷新：外部修改配置文件后，页面可自动同步
 
-### 1.1 聊天 / 多智能体学习空间
+## 技术栈
 
-- 默认首页为聊天工作区（单页应用，侧边导航切换模块）
-- 显示当前默认模型
-- 显示多智能体协同状态（知识库状态、模型、工作智能体、接口接入）
-- 支持新建会话、切换会话、重命名会话、删除会话
-- 支持清空当前会话
-- 支持输入学习指令，Enter 发送，Shift+Enter 换行
-- 支持上传附件（PDF / Word / Markdown / TXT / JSON / CSV 等）
-- 消息、附件、协同状态写入本地数据库
-- 支持接入 DeepSeek / OpenAI-Compatible 外部模型进行真实推理
+- 桌面壳：Electron
+- 前端：Vue 3、Vue Router、Pinia、Vite、Element Plus
+- 后端：Express
+- 数据库：SQLite、FTS5
+- 文档解析：`pdf-parse`、`mammoth`
 
-### 1.2 RAG 检索增强闭环
-
-- 上传 PDF / DOCX 自动解析为纯文本（服务端 pdf-parse + mammoth）
-- Markdown / TXT 直接读取内容
-- 自动切块（段落感知滑窗，~500 字/块，100 字重叠）
-- SQLite FTS5 全文索引，BM25 相关性排序
-- 发送消息时自动检索相关文档片段，注入 LLM 上下文
-- 聊天回答下方展示"参考来源"卡片，列出引用文件名和片段
-
-### 1.3 模型配置
-
-- 新增模型配置（支持 DeepSeek、Qwen、OpenAI-Compatible 等）
-- 查看模型列表
-- 设置默认模型
-- 自动检测模型（从 API 识别模型 ID）
-- 测试模型连通性
-
-### 1.4 知识库管理
-
-- 创建知识库
-- 导入本地文档（PDF / Word / Markdown，自动解析+切块+索引）
-- 搜索文档
-- 删除/清空文档（自动清理关联的 RAG 切块）
-
-### 1.5 智能体市场
-
-- 切换学习智能体（综合学习、政治知识、编程训练等）
-- 显示智能体擅长范围和知识范围
-- 启动时自动补齐聊天工作区所需的检索/规划智能体
-
-### 1.6 学习工作流
-
-- 学情诊断
-- 学习规划
-- 学习资源生成
-- 练习题生成
-- 自动反馈
-
-## 2. 技术栈
-
-- 桌面端：Electron
-- 前端：Vue 3 + Vite + Vue Router + Pinia + Element Plus
-- 后端：Node.js + Express
-- 数据库：SQLite + better-sqlite3 + FTS5 全文搜索
-- 文档解析：pdf-parse + mammoth
-- 通信方式：前端通过 HTTP 调用本地 `/api` 接口
-
-## 3. 项目结构
+## 目录结构
 
 ```text
-1/
-├─ electron/                  Electron 主进程与 preload
-├─ renderer/                  前端工程
-│  ├─ index.html              Vite 入口页，挂载 Vue 应用
-│  └─ src/
-│     ├─ components/          通用组件 + workspace 子组件
-│     │  └─ workspace/         ChatHistoryPanel / ChatPane / ComposerPanel / StatusPanel / ...
-│     ├─ composables/         组合式函数
-│     ├─ router/              路由配置
-│     ├─ services/            API 请求封装
-│     ├─ stores/              Pinia 状态
-│     ├─ styles/              全局主题
-│     ├─ utils/               工具函数（含 RAG 引用渲染）
-│     └─ views/               页面视图（StudyWorkspaceView 为主入口）
-├─ server/
-│  ├─ data/                   SQLite 数据文件
-│  └─ src/
-│     ├─ config/              环境与数据库初始化
-│     ├─ data/                种子数据
-│     ├─ db/                  建表脚本（含 FTS5 全文索引）
-│     ├─ routes/              API 路由
-│     ├─ services/            业务服务（含 RAG 三件套）
-│     └─ utils/               工具方法
-├─ package.json
-└─ vite.config.js
+.
+├─ 1/
+│  ├─ electron/                 Electron 主进程与 preload
+│  ├─ renderer/                 Vue 前端
+│  │  ├─ src/components/workspace/
+│  │  ├─ src/composables/
+│  │  ├─ src/services/
+│  │  └─ src/stores/
+│  ├─ server/                   Express 后端
+│  │  ├─ src/routes/
+│  │  ├─ src/services/
+│  │  ├─ src/utils/
+│  │  ├─ src/db/
+│  │  └─ data/                  本地数据库目录
+│  └─ package.json
+├─ 前端设计/                     设计稿与原始静态页面
+├─ README.md
+├─ API文档.md
+├─ 维护文档.md
+└─ 详细技术说明文档.md
 ```
 
-## 4. 页面与路由
+## 启动方式
 
-当前前端使用单页应用模式，路由为 `/`→`StudyWorkspaceView.vue`，内部通过侧边导航切换四个模块：
+在项目应用目录执行：
 
-- 聊天（默认首页）
-- 知识库
-- 智能体
-- 设置（模型配置 + API 接入）
-
-## 5. 运行方式
-
-进入项目目录 `1`：
-
-```bash
+```powershell
+cd "E:\基于Deepseek的智能体学习软件\1"
 npm install
 npm run dev
 ```
 
-也可以拆开运行：
+常用命令：
 
-```bash
-npm run dev:renderer
-npm run dev:server
-npm run dev:electron
-```
-
-生产构建：
-
-```bash
+```powershell
 npm run build
+npm test
 ```
 
-## 6. 当前后端接口范围
+默认端口：
 
-当前已实现的接口类别：
+- 前端开发服务器：`5173`
+- 后端接口服务：`3001`
 
-- 健康检查：`/api/health`
-- 总览：`/api/dashboard/summary`
-- 模型：`/api/models`
-- 知识库：`/api/knowledge-bases`
-- 智能体：`/api/agents`
-- 学习工作流：`/api/workflows/*`
-- 聊天工作区：`/api/chat/*`
+## 配置与数据位置
 
-聊天工作区已实现：
-
-- 工作区状态
-- 会话创建、查询、重命名、删除
-- 会话清空
-- 附件上传（支持 PDF/DOCX 自动解析+切块+索引）
-- 消息发送（含 RAG 检索召回 + 引用返回）
-
-## 7. 数据库
-
-数据库文件默认位于：
+运行时 API 配置不保存在项目目录内，而是保存在当前系统用户的“文档”目录：
 
 ```text
-1/server/data/app.db
+文档\agent API\runtime-config.json
 ```
 
-当前已落地的主要数据表：
+说明：
 
-- `model_configs`
-- `knowledge_bases`
-- `knowledge_documents`
-- `documents`
-- `agents`
-- `learning_plans`
-- `generated_resources`
-- `questions`
-- `answers`
-- `mistakes`
-- `chat_sessions`
-- `chat_messages`
-- `chat_attachments`
-- `document_chunks`（RAG 切块存储）
-- `document_chunks_fts`（FTS5 全文检索）
+- Windows 下会优先自动读取系统真实“文档”目录
+- `API Key` 采用当前用户上下文保护，不再明文保存
+- 本地数据库默认位于 `1/server/data/app.db`
 
-## 8. 当前实现边界
+## 主要页面
 
-当前已经完成：
+- 聊天页：历史会话、消息流式输出、附件上传、引用展示
+- 知识库页：文档导入、检索列表、统计展示
+- 智能体页：查看并切换当前学习智能体
+- 设置页：配置模型提供方、接口地址、模型 ID、系统提示词
 
-- Electron 桌面壳
-- Vue 前端页面（单页应用）
-- Express 本地 API
-- SQLite 建表与种子数据
-- 聊天工作区和消息持久化
-- 会话重命名、删除、清空
-- 附件登记与会话关联
-- PDF / DOCX 文档解析与文本提取
-- 文档自动切块与 FTS5 全文索引
-- RAG 检索召回与引用展示
-- 外部模型接入（DeepSeek / OpenAI-Compatible）
+## 当前测试覆盖
 
-当前仍为示例或占位实现的部分：
+项目已包含一组最小集成测试，覆盖以下核心链路：
 
-- 用户登录鉴权
-- 导出 PDF / Word / Markdown
-- 打包发布与自动更新
+- 聊天接口本地回复
+- 聊天流式输出
+- 知识库导入与查询
+- 设置保存与读取
+- 接口 schema 校验
 
-## 9. 后续建议
+执行命令：
 
-优先级建议如下：
+```powershell
+cd "E:\基于Deepseek的智能体学习软件\1"
+npm test
+```
 
-1. 引入向量检索（sqlite-vec）替代纯关键词 FTS5，提升召回精度
-2. 为更多智能体建立独立 Prompt 与执行链路
-3. 增加导出报告、日志、打包和自动更新能力
-4. 支持更多文档格式（PPT、XLSX 等）
+## 补充文档
 
-## 10. 相关文档
-
-- [API文档.md](./API文档.md)
-- [维护文档.md](./维护文档.md)
-- [详细技术说明文档.md](./详细技术说明文档.md)
+- 接口说明见 [API文档.md](./API文档.md)
+- 维护说明见 [维护文档.md](./维护文档.md)
+- 技术架构见 [详细技术说明文档.md](./详细技术说明文档.md)
