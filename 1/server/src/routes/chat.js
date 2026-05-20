@@ -11,6 +11,7 @@ import {
 } from "../services/chatWorkspaceService.js";
 import {
   defineObjectSchema,
+  optionalBooleanField,
   optionalNumberField,
   optionalStringField,
   stringArrayField,
@@ -62,6 +63,11 @@ const messageSchema = defineObjectSchema(
   {
     sessionId: optionalStringField("会话 ID", { maxLength: 80, defaultValue: "" }),
     content: optionalStringField("消息内容", { maxLength: 20000, defaultValue: "" }),
+    useTools: optionalBooleanField("工具调用", { defaultValue: false }),
+    useWebSearch: optionalBooleanField("网页搜索", { defaultValue: false }),
+    useStructuredOutput: optionalBooleanField("结构化输出", { defaultValue: false }),
+    useHybridRetrieval: optionalBooleanField("混合检索", { defaultValue: true }),
+    useImageVision: optionalBooleanField("图片识别", { defaultValue: true }),
     attachmentIds: stringArrayField("附件 ID 列表", {
       maxLength: 50,
       itemMaxLength: 80

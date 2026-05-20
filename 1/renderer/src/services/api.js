@@ -143,6 +143,13 @@ export async function importKnowledgeFiles(files) {
   return data;
 }
 
+export async function importKnowledgeUrl(payload) {
+  const { data } = await api.post("/knowledge/import-url", payload, {
+    timeout: 30000
+  });
+  return data;
+}
+
 export async function deleteKnowledgeDocument(documentId) {
   await api.delete(`/knowledge/documents/${documentId}`);
 }

@@ -2,7 +2,8 @@ import { getDb } from "../config/database.js";
 import { createId } from "../utils/id.js";
 import { isBinaryDocument, parseDocumentFromUpload } from "./documentParserService.js";
 import { chunkText } from "./chunkingService.js";
-import { indexChunks, removeChunks } from "./ragService.js";
+import { indexChunks, removeChunks, searchChunks } from "./ragService.js";
+import { fetchUrlContent } from "./webToolService.js";
 
 const DEFAULT_KNOWLEDGE_BASE = {
   name: "默认知识库",
@@ -45,6 +46,9 @@ function syncKnowledgeBaseDocumentCount(knowledgeBaseId) {
 }
 
 function detectSourceType(fileName, mimeType) {
+  if (mimeType?.includes("html")) {
+    return "web";
+  }
   const ext = String(fileName || "").split(".").pop()?.toLowerCase() || "";
   if (mimeType?.includes("pdf") || ext === "pdf") {
     return "pdf";
@@ -170,23 +174,28 @@ export async function importKnowledgeDocuments(files = []) {
       continue;
     }
 
-    if (isBinaryDocument(file.name, file.mimeType) && file.contentText) {
+    if (file.contentText) {
       try {
-        const fullText = await parseDocumentFromUpload(file.name, file.mimeType, file.contentText);
-        if (fullText) {
-          db.prepare("UPDATE knowledge_documents SET summary = ? WHERE id = ?").run(
-            fullText.slice(0, 280),
+        const fullText = isBinaryDocument(file.name, file.mimeType)
+          ? await parseDocumentFromUpload(file.name, file.mimeType, file.contentText)
+          : String(file.contentText || "");
+
+        if (!fullText) {
+          continue;
+        }
+
+        db.prepare("UPDATE knowledge_documents SET summary = ? WHERE id = ?").run(
+          fullText.slice(0, 280),
+          doc.id
+        );
+
+        const chunks = chunkText(fullText);
+        if (chunks.length) {
+          indexChunks("knowledge_document", doc.id, doc.name, chunks);
+          db.prepare("UPDATE knowledge_documents SET chunk_count = ? WHERE id = ?").run(
+            chunks.length,
             doc.id
           );
-
-          const chunks = chunkText(fullText);
-          if (chunks.length) {
-            indexChunks("knowledge_document", doc.id, doc.name, chunks);
-            db.prepare("UPDATE knowledge_documents SET chunk_count = ? WHERE id = ?").run(
-              chunks.length,
-              doc.id
-            );
-          }
         }
       } catch (parseError) {
         console.error(`Failed to parse knowledge document "${file.name}":`, parseError.message);
@@ -195,6 +204,23 @@ export async function importKnowledgeDocuments(files = []) {
   }
 
   return listKnowledgeDocuments().filter((item) => docs.some((doc) => doc.id === item.id));
+}
+
+export async function importKnowledgeUrl(payload) {
+  const page = await fetchUrlContent(payload.url);
+  const imported = await importKnowledgeDocuments([
+    {
+      name: payload.title || page.title,
+      mimeType: page.mimeType || "text/html",
+      sizeBytes: Buffer.byteLength(page.text, "utf8"),
+      contentText: [`来源 URL：${page.url}`, "", page.text].join("\n")
+    }
+  ]);
+
+  return {
+    ...imported[0],
+    sourceUrl: page.url
+  };
 }
 
 export function removeKnowledgeDocument(documentId) {
@@ -270,23 +296,24 @@ export function addDocument(knowledgeBaseId, payload) {
 export function retrievalTest(knowledgeBaseId, payload) {
   const db = getDb();
   const knowledgeBase = db.prepare("SELECT * FROM knowledge_bases WHERE id = ?").get(knowledgeBaseId);
+  const mode = payload.mode || payload.searchMode || "hybrid";
+  const results = searchChunks(payload.query, {
+    topK: Number(payload.topK || 3),
+    mode,
+    rerank: payload.rerank !== false
+  });
 
   return {
     knowledgeBaseId,
     knowledgeBaseName: knowledgeBase?.name || "未知知识库",
     query: payload.query,
     topK: Number(payload.topK || 3),
-    results: [
-      {
-        chunkId: "chunk_01",
-        score: 0.92,
-        snippet: "极限定义与无穷小替换是高数第一阶段学习重点。"
-      },
-      {
-        chunkId: "chunk_02",
-        score: 0.88,
-        snippet: "函数连续性判断需要结合左右极限与函数值。"
-      }
-    ]
+    mode,
+    results: results.map((item) => ({
+      chunkId: item.id,
+      sourceName: item.sourceName,
+      score: item.score,
+      snippet: item.content.slice(0, 220)
+    }))
   };
 }

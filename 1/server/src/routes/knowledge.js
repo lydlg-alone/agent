@@ -3,6 +3,7 @@ import {
   clearKnowledgeDocuments,
   createKnowledgeBase,
   importKnowledgeDocuments,
+  importKnowledgeUrl,
   listKnowledgeBases,
   listKnowledgeDocuments,
   removeKnowledgeDocument,
@@ -11,6 +12,7 @@ import {
 import {
   arrayField,
   defineObjectSchema,
+  optionalBooleanField,
   optionalNumberField,
   optionalStringField,
   stringField,
@@ -79,6 +81,14 @@ const importSchema = defineObjectSchema(
   "导入知识库请求"
 );
 
+const importUrlSchema = defineObjectSchema(
+  {
+    url: stringField("网页 URL", { maxLength: 2000 }),
+    title: optionalStringField("网页标题", { maxLength: 180, defaultValue: "" })
+  },
+  "导入网页请求"
+);
+
 const documentSchema = defineObjectSchema(
   {
     title: stringField("文档标题", { maxLength: 255 }),
@@ -103,6 +113,8 @@ const documentSchema = defineObjectSchema(
 const retrievalSchema = defineObjectSchema(
   {
     query: stringField("检索问题", { maxLength: 1000 }),
+    mode: optionalStringField("检索模式", { maxLength: 20, defaultValue: "hybrid" }),
+    rerank: optionalBooleanField("重排", { defaultValue: true }),
     topK: optionalNumberField("返回条数", {
       integer: true,
       min: 1,
@@ -129,6 +141,14 @@ export function registerKnowledgeRoutes(app) {
   app.post("/api/knowledge/import", validateBody(importSchema), async (req, res, next) => {
     try {
       res.status(201).json(await importKnowledgeDocuments(req.validated.body.files));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/knowledge/import-url", validateBody(importUrlSchema), async (req, res, next) => {
+    try {
+      res.status(201).json(await importKnowledgeUrl(req.validated.body));
     } catch (error) {
       next(error);
     }

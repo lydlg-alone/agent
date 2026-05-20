@@ -459,4 +459,24 @@ defineExpose({
     padding-right: 20px;
   }
 }
+
+@media (max-height: 920px) {
+  .quick-prompts {
+    padding-top: 16px;
+    padding-bottom: 8px;
+    gap: 10px;
+  }
+
+  .quick-chip {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .message-list {
+    padding-top: 4px;
+    padding-bottom: 128px;
+    scroll-padding-bottom: 128px;
+    gap: 18px;
+  }
+}
 </style>

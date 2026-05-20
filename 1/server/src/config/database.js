@@ -33,4 +33,16 @@ export function bootstrapDatabase() {
   } catch {
     // Column already exists
   }
+
+  try {
+    db.exec("ALTER TABLE chat_attachments ADD COLUMN content_data TEXT");
+  } catch {
+    // Column already exists
+  }
+
+  try {
+    db.exec("ALTER TABLE document_chunks ADD COLUMN embedding_json TEXT");
+  } catch {
+    // Column already exists
+  }
 }
