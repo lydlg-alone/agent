@@ -142,6 +142,44 @@ test("server integration flows", async (t) => {
     const listResult = await requestJson("/api/knowledge/documents");
     assert.equal(listResult.response.status, 200);
     assert.ok(listResult.json.some((item) => item.name === "线代提纲.md"));
+
+    const basesResult = await requestJson("/api/knowledge-bases");
+    const baseId = basesResult.json[0].id;
+    const retrievalResult = await requestJson(`/api/knowledge-bases/${baseId}/retrieval-test`, {
+      method: "POST",
+      body: JSON.stringify({
+        query: "矩阵和行列式",
+        mode: "hybrid",
+        topK: 2
+      })
+    });
+
+    assert.equal(retrievalResult.response.status, 200);
+    assert.ok(retrievalResult.json.results.some((item) => item.sourceName === "线代提纲.md"));
+  });
+
+  await t.test("chat image attachments are marked for vision messages", async () => {
+    clearRuntimeConfig();
+
+    const sessionResult = await requestJson("/api/chat/sessions", {
+      method: "POST",
+      body: JSON.stringify({ title: "图片识别测试" })
+    });
+
+    const uploadResult = await requestJson("/api/chat/attachments", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: sessionResult.json.id,
+        name: "diagram.png",
+        mimeType: "image/png",
+        sizeBytes: 32,
+        contentText: "data:image/png;base64,iVBORw0KGgo="
+      })
+    });
+
+    assert.equal(uploadResult.response.status, 201);
+    assert.equal(uploadResult.json.isImage, true);
+    assert.match(uploadResult.json.contentExcerpt, /图片附件/);
   });
 
   await t.test("settings save writes runtime config file and current settings can be read back", async () => {

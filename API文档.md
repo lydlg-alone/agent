@@ -1,219 +1,148 @@
 # API 文档
 
-本文档对应当前本地后端实现，默认基础地址如下：
+后端默认地址：
 
 ```text
 http://127.0.0.1:3001/api
 ```
 
-## 统一说明
+## 通用约定
 
-- 所有请求和响应均为 `application/json`
-- 流式聊天接口除外，返回 `text/event-stream`
-- 失败时默认返回：
-
-```json
-{
-  "message": "错误说明"
-}
-```
-
-## 健康检查
-
-### `GET /health`
-
-用于检查服务是否可用。
-
-响应示例：
+- 普通接口使用 `application/json`
+- 流式聊天接口使用 `text/event-stream`
+- 失败时统一返回：
 
 ```json
 {
-  "status": "ok"
+  "code": "INTERNAL_ERROR",
+  "message": "Server error"
 }
 ```
 
-## 仪表盘
+- 健康检查入口：
 
-### `GET /dashboard/summary`
+```text
+GET /api/health
+```
 
-获取首页摘要数据。
+## 1. 聊天工作区
 
-### `GET /analytics/overview`
+### `GET /chat/workspace`
 
-获取学习数据统计总览（新增）。
+获取聊天工作区初始化数据，包括当前会话、会话列表、模型、知识库和当前激活智能体。
 
-响应示例：
+### `POST /chat/sessions`
+
+创建会话。
+
+请求体：
 
 ```json
 {
-  "counts": {
-    "sessions": 12,
-    "messages": 156,
-    "userMessages": 78,
-    "assistantMessages": 78,
-    "documents": 8,
-    "knowledgeBases": 1,
-    "agents": 4,
-    "questions": 20,
-    "answers": 15,
-    "resources": 5,
-    "plans": 3,
-    "bookmarks": 7,
-    "totalDocSizeBytes": 245760
-  },
-  "dailyActivity": [
-    { "day": "2025-01-10", "total": 24, "user_count": 12, "assistant_count": 12 },
-    { "day": "2025-01-11", "total": 18, "user_count": 9, "assistant_count": 9 }
-  ],
-  "scoreTrend": [
-    { "day": "2025-01-10", "avg_score": 78.5, "count": 3 },
-    { "day": "2025-01-11", "avg_score": 85.0, "count": 2 }
-  ],
-  "docTypeDistribution": [
-    { "type": "pdf", "count": 3, "total_size": 120000 },
-    { "type": "markdown", "count": 5, "total_size": 125760 }
-  ],
-  "recentDocuments": [
-    {
-      "id": "kdoc_xxx",
-      "name": "高等数学复习提纲.pdf",
-      "sourceType": "pdf",
-      "sizeBytes": 45000,
-      "createdAt": "2025-01-11T08:00:00.000Z"
-    }
-  ],
-  "recentSessions": [
-    {
-      "id": "chat_xxx",
-      "title": "JavaScript 异步复习",
-      "updatedAt": "2025-01-11T10:00:00.000Z",
-      "messageCount": 24
-    }
-  ],
-  "practiceSummary": {
-    "totalQuestions": 20,
-    "totalAnswers": 15,
-    "avgScore": 82.3
-  }
+  "title": "新的学习会话"
 }
 ```
 
-## 模型与运行时配置
+### `GET /chat/sessions/:id`
 
-### `GET /models`
+获取单个会话详情。
 
-读取当前可用模型列表。
+### `PATCH /chat/sessions/:id`
 
-### `GET /models/current`
+重命名会话。
 
-读取当前运行时配置、当前模型和最近成功模型。
+### `DELETE /chat/sessions/:id`
 
-响应示例：
+删除会话。
+
+### `POST /chat/sessions/:id/clear`
+
+清空某个会话的消息。
+
+### `POST /chat/attachments`
+
+上传聊天附件。
+
+请求体：
 
 ```json
 {
-  "settings": {
-    "provider": "deepseek",
-    "baseUrl": "https://api.deepseek.com/v1",
-    "modelId": "deepseek-v4-flash",
-    "systemPrompt": "你是学习助理。",
-    "hasApiKey": true,
-    "configPath": "C:\\Users\\用户名\\Documents\\agent API\\runtime-config.json"
-  },
-  "currentModel": {
-    "name": "deepseek-v4-flash",
-    "provider": "deepseek",
-    "baseUrl": "https://api.deepseek.com/v1",
-    "modelId": "deepseek-v4-flash",
-    "streamEnabled": true
-  },
-  "recentSuccessfulModels": []
+  "sessionId": "session_xxx",
+  "name": "diagram.png",
+  "mimeType": "image/png",
+  "sizeBytes": 20480,
+  "contentText": "data:image/png;base64,..."
 }
 ```
 
-### `GET /models/current/stream`
+说明：
 
-运行时配置订阅接口，使用 `EventSource` 持续接收配置更新。
+- 文本类附件使用 `contentText`
+- 图片类附件也通过 `contentText` 传入 data URL
+- 返回结果中会包含 `isImage`
 
-### `POST /models/current`
+### `POST /chat/messages`
 
-保存当前运行时配置。
+发送非流式消息。
 
-请求体示例：
+请求体：
 
 ```json
 {
-  "provider": "deepseek",
-  "baseUrl": "https://api.deepseek.com/v1",
-  "apiKey": "sk-***",
-  "modelId": "deepseek-v4-flash",
-  "systemPrompt": "你是学习助理。"
+  "sessionId": "session_xxx",
+  "content": "根据我的知识库总结这篇资料",
+  "attachmentIds": ["att_xxx"],
+  "useTools": true,
+  "useWebSearch": false,
+  "useStructuredOutput": false,
+  "useHybridRetrieval": true,
+  "useImageVision": true
 }
 ```
 
-### `POST /models/current/detect`
+字段说明：
 
-根据当前配置探测模型列表或当前模型信息。
+- `useTools`
+  - 允许模型调用本地工具
+  - 当前可调用 `search_knowledge`
+- `useWebSearch`
+  - 启用联网搜索
+  - 开启时后端会自动把 `useTools` 视为开启
+  - 当前可调用 `web_search`
+- `useStructuredOutput`
+  - 要求模型按 JSON 对象返回
+- `useHybridRetrieval`
+  - 开启时使用 `hybrid` 检索
+  - 关闭时使用 `keyword` 检索
+- `useImageVision`
+  - 上传图片时，是否作为视觉输入发送给模型
 
-### `POST /models/test`
+### `POST /chat/messages/stream`
 
-测试模型连接。
+发送流式消息，入参与 `/chat/messages` 一致。
 
-### `GET /models/templates`
+SSE 事件类型：
 
-获取供应商配置模板列表。
+- `start`
+- `delta`
+- `done`
+- `error`
 
-### `GET /models/history`
+示例：
 
-获取历史连接测试记录。
+```text
+data: {"type":"start","sessionId":"session_xxx","assistantMessageId":"msg_xxx"}
 
-### `DELETE /models/history`
+data: {"type":"delta","delta":"这是第一段内容"}
 
-清空连接历史。
-
-### `GET /models/recent-successful`
-
-获取最近成功连接的模型记录。
-
-### `POST /models/export`
-
-导出当前配置，不返回明文密钥。
-
-### `POST /models/import`
-
-导入模型配置。
-
-## 智能体
-
-### `GET /agents`
-
-获取全部智能体列表。
-
-### `GET /agents/active`
-
-获取当前激活智能体。
-
-### `POST /agents`
-
-创建智能体。
-
-请求体示例：
-
-```json
-{
-  "name": "代码学习助理",
-  "role": "coding-coach",
-  "modelBinding": "deepseek-v4-flash",
-  "promptTemplate": "请优先解释代码思路。",
-  "knowledgeScope": "编程、调试、复习"
-}
+data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","content":"完整回答"}}
 ```
 
-### `POST /agents/:id/activate`
+注意：
 
-激活指定智能体。
+- 当开启 `useTools` 或 `useStructuredOutput` 时，后端会先完成工具调用或结构化整合，再输出结果
 
-## 知识库
+## 2. 知识库
 
 ### `GET /knowledge-bases`
 
@@ -223,36 +152,31 @@ http://127.0.0.1:3001/api
 
 创建知识库。
 
-### `POST /knowledge-bases/:id/documents`
-
-向指定知识库添加单条文档元信息。
-
-### `POST /knowledge-bases/:id/retrieval-test`
-
-测试指定知识库的检索效果。
-
-请求体示例：
+请求体：
 
 ```json
 {
-  "query": "请总结 JavaScript 异步编程的核心概念",
-  "topK": 3
+  "name": "前端知识库",
+  "category": "学习资料",
+  "status": "draft",
+  "vectorStore": "SQLite + sqlite-vec",
+  "description": "用于存放前端学习材料"
 }
 ```
 
 ### `GET /knowledge/documents`
 
-获取知识库文档列表，支持搜索。
+获取知识文档列表。
 
 查询参数：
 
-- `search`：关键字搜索
+- `search`：可选，按名称过滤
 
 ### `POST /knowledge/import`
 
-批量导入文档。
+导入文件到知识库。
 
-请求体示例：
+请求体：
 
 ```json
 {
@@ -267,239 +191,193 @@ http://127.0.0.1:3001/api
 }
 ```
 
+### `POST /knowledge/import-url`
+
+新增。导入网页正文到知识库。
+
+请求体：
+
+```json
+{
+  "url": "https://example.com/article",
+  "title": "可选的手动标题"
+}
+```
+
+说明：
+
+- 后端会抓取网页并提取正文文本
+- 结果会切片并进入检索索引
+
 ### `DELETE /knowledge/documents/:id`
 
-删除单条知识文档。
+删除单个文档。
 
 ### `DELETE /knowledge/documents`
 
-清空全部知识文档。
+清空所有知识文档。
 
-## 聊天工作区
+### `POST /knowledge-bases/:id/documents`
 
-### `GET /chat/workspace`
+向指定知识库手动添加文档元信息。
 
-获取聊天工作区聚合数据。通常包含：
+### `POST /knowledge-bases/:id/retrieval-test`
 
-- 历史会话列表
-- 当前会话消息
-- 当前智能体
-- 当前模型
-- 知识库状态
+测试检索结果。
 
-### `POST /chat/sessions`
-
-创建新会话。
-
-请求体示例：
+请求体：
 
 ```json
 {
-  "title": "给我一份复习计划"
+  "query": "JavaScript Promise 的核心概念",
+  "mode": "hybrid",
+  "rerank": true,
+  "topK": 3
 }
 ```
 
-### `GET /chat/sessions/:id`
+参数说明：
 
-获取单个会话详情。
+- `mode` 可选值：`keyword`、`vector`、`hybrid`
+- `rerank` 控制是否执行重排
 
-### `PATCH /chat/sessions/:id`
+## 3. 模型与运行时配置
 
-重命名会话。
+### `GET /models`
 
-请求体示例：
+获取模型配置列表。
+
+### `GET /models/current`
+
+获取当前运行时配置、当前模型和最近成功连接记录。
+
+### `GET /models/current/stream`
+
+SSE 方式订阅运行时配置变化。
+
+### `POST /models`
+
+新增模型配置模板。
+
+### `POST /models/current`
+
+保存当前运行时配置。
+
+请求体：
 
 ```json
 {
-  "title": "JavaScript 异步复习"
+  "provider": "deepseek",
+  "baseUrl": "https://api.deepseek.com/v1",
+  "apiKey": "sk-***",
+  "modelId": "deepseek-v4-flash",
+  "systemPrompt": "请使用简体中文回答。"
 }
 ```
 
-### `DELETE /chat/sessions/:id`
+### `POST /models/current/detect`
 
-删除指定会话。
+检测当前模型配置是否可用，并尝试识别可连接模型。
 
-### `POST /chat/sessions/:id/clear`
+### `POST /models/test`
 
-清空指定会话的消息内容。
+测试模型连接。
 
-### `POST /chat/attachments`
+### `GET /models/templates`
 
-上传聊天附件。后端会尝试解析文本，并为后续检索准备内容。
+获取预置供应商模板。
 
-请求体示例：
+### `GET /models/history`
+
+获取模型连接历史。
+
+### `DELETE /models/history`
+
+清空模型连接历史。
+
+### `GET /models/recent-successful`
+
+获取最近成功连接过的模型。
+
+### `POST /models/export`
+
+导出当前运行时配置。
+
+### `POST /models/import`
+
+导入运行时配置。
+
+## 4. 智能体
+
+### `GET /agents`
+
+获取智能体列表。
+
+### `GET /agents/active`
+
+获取当前激活智能体。
+
+### `POST /agents`
+
+创建智能体。
+
+请求体：
 
 ```json
 {
-  "sessionId": "session_xxx",
-  "name": "高等数学复习提纲.pdf",
-  "mimeType": "application/pdf",
-  "sizeBytes": 52342,
-  "contentText": ""
+  "name": "默认学习助手",
+  "role": "study-assistant",
+  "modelBinding": "deepseek-v4-flash",
+  "promptTemplate": "你是一个耐心的学习助手。",
+  "knowledgeScope": "本地知识库、当前目标、最近会话"
 }
 ```
 
-### `POST /chat/messages`
+### `POST /agents/:id/activate`
 
-发送普通聊天消息，等待完整回答后一次性返回。
+激活指定智能体。
 
-请求体示例：
-
-```json
-{
-  "sessionId": "session_xxx",
-  "content": "基于知识库生成今天的复习计划",
-  "attachmentIds": []
-}
-```
-
-响应示例：
-
-```json
-{
-  "session": {
-    "id": "session_xxx",
-    "title": "给我一份复习计划"
-  },
-  "userMessage": {
-    "role": "user",
-    "content": "基于知识库生成今天的复习计划"
-  },
-  "assistantMessage": {
-    "role": "assistant",
-    "content": "下面是一份可执行的复习计划。",
-    "source": "api",
-    "citations": [
-      {
-        "sourceId": "doc_xxx",
-        "sourceName": "高等数学复习提纲.md",
-        "chunkIndex": 0
-      }
-    ]
-  }
-}
-```
-
-> 注意：`assistantMessage.content` 可能包含 Markdown 格式文本（GFM 表格、代码块、LaTeX 公式等），前端通过 `marked` + `highlight.js` + `KaTeX` 渲染。
-
-### `POST /chat/messages/stream`
-
-发送流式聊天消息，返回 `SSE` 事件流。
-
-请求体与普通聊天接口一致。
-
-事件类型：
-
-- `start`：开始生成
-- `delta`：分片增量
-- `done`：完成
-- `error`：失败
-
-事件示例：
-
-```text
-data: {"type":"start","sessionId":"session_xxx","assistantMessageId":"msg_xxx"}
-
-data: {"type":"delta","delta":"先明确今天的复习范围。"}
-
-data: {"type":"delta","delta":"然后拆成 3 个阶段。"}
-
-data: {"type":"done","message":{"role":"assistant","content":"..."}}
-```
-
-> 注意：`delta` 事件中的内容为纯文本片段，前端在流式完成后整体渲染 Markdown。
-
-## 学习工作流
+## 5. 学习工作流
 
 ### `POST /workflows/diagnose`
 
-诊断学习状态。
-
-请求体示例：
-
-```json
-{
-  "goal": "掌握 JavaScript 异步编程",
-  "level": "中级"
-}
-```
+学习目标诊断。
 
 ### `POST /workflows/plan`
 
 生成学习计划。
 
-请求体示例：
-
-```json
-{
-  "goal": "掌握 JavaScript 异步编程",
-  "difficulty": "中等"
-}
-```
-
 ### `POST /workflows/resources`
 
-生成学习资料。
-
-请求体示例：
-
-```json
-{
-  "topic": "Promise 与 async/await",
-  "goal": "掌握 JavaScript 异步编程",
-  "resourceType": "讲义",
-  "difficulty": "中等",
-  "knowledgeBaseId": "kb_xxx"
-}
-```
+生成学习资源。
 
 ### `POST /workflows/practice`
 
-生成练习内容。
-
-请求体示例：
-
-```json
-{
-  "topic": "Promise 链式调用",
-  "questionType": "简答题",
-  "difficulty": "中等",
-  "knowledgeBaseId": "kb_xxx"
-}
-```
+生成练习题。
 
 ### `POST /workflows/feedback`
 
-评估答案并返回反馈。
+批改答案并给出反馈。
 
-请求体示例：
+## 6. 统计与概览
 
-```json
-{
-  "questionId": "q_xxx",
-  "answerText": "Promise 是一种异步编程解决方案..."
-}
-```
+### `GET /dashboard/summary`
 
-响应示例：
+获取首页摘要信息。
 
-```json
-{
-  "id": "ans_xxx",
-  "question_id": "q_xxx",
-  "answer_text": "Promise 是一种异步编程解决方案...",
-  "score": 88,
-  "feedback": "结构完整，建议补充更具体的案例。",
-  "mistakeSummary": [],
-  "nextStep": "进入综合测试阶段"
-}
-```
+### `GET /analytics/overview`
 
-## 备注
+获取统计页概览，包括消息量、文档量、会话量、练习情况等。
 
-- 当前检索能力基于 SQLite `FTS5` 文本召回
-- 当前配置文件位于系统"文档"目录下的 `agent API/runtime-config.json`
-- `API Key` 不再明文返回或导出
-- 聊天消息支持 Markdown/LaTeX 格式，前端负责渲染
-- 仪表盘接口从 SQLite 实时聚合统计，无数据时返回空数组/零值
-- 学习工作流接口支持 LLM 调用（需配置有效运行时）和 Mock 降级两种模式
+## 7. 本次接口变更摘要
+
+相对旧版本，当前接口新增或变化如下：
+
+- `/chat/messages` 与 `/chat/messages/stream`
+  - 新增五个能力开关字段
+- `/knowledge/import-url`
+  - 新增网页 URL 导入
+- `/knowledge-bases/:id/retrieval-test`
+  - 新增 `mode` 与 `rerank`
+- `/chat/attachments`
+  - 图片附件支持以 data URL 形式传入并标记为视觉附件

@@ -115,9 +115,9 @@ function handleMouseMove(event) {
 
 function drawBackgroundDust() {
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "rgba(255, 255, 255, 0.008)");
-  gradient.addColorStop(0.45, "rgba(112, 145, 255, 0.018)");
-  gradient.addColorStop(1, "rgba(255, 255, 255, 0.004)");
+  gradient.addColorStop(0, "rgba(255, 255, 255, 0.16)");
+  gradient.addColorStop(0.45, "rgba(125, 211, 252, 0.08)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0.1)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 }
@@ -161,17 +161,17 @@ onBeforeUnmount(() => {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(circle at 18% 14%, rgba(121, 137, 255, 0.16), transparent 24%),
-    radial-gradient(circle at 78% 12%, rgba(106, 157, 255, 0.13), transparent 26%),
-    radial-gradient(circle at 62% 68%, rgba(255, 255, 255, 0.05), transparent 18%),
-    linear-gradient(180deg, #1a2029 0%, #161b23 54%, #11161f 100%);
+    radial-gradient(circle at 18% 14%, rgba(186, 230, 253, 0.72), transparent 25%),
+    radial-gradient(circle at 78% 12%, rgba(219, 234, 254, 0.78), transparent 28%),
+    radial-gradient(circle at 62% 68%, rgba(125, 211, 252, 0.18), transparent 22%),
+    linear-gradient(180deg, #f8fcff 0%, #edf7ff 54%, #e4f2fb 100%);
 }
 
 .ambient-starfield__wash {
   position: absolute;
   border-radius: 999px;
   filter: blur(60px);
-  opacity: 0.42;
+  opacity: 0.5;
   animation: drift 22s ease-in-out infinite alternate;
 }
 
@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
   left: -10%;
   width: 34vw;
   height: 22vw;
-  background: radial-gradient(circle, rgba(118, 135, 255, 0.28), rgba(60, 76, 108, 0.12) 42%, transparent 74%);
+  background: radial-gradient(circle, rgba(125, 211, 252, 0.3), rgba(255, 255, 255, 0.26) 42%, transparent 74%);
 }
 
 .ambient-starfield__wash--two {
@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
   right: -8%;
   width: 30vw;
   height: 20vw;
-  background: radial-gradient(circle, rgba(108, 162, 255, 0.2), rgba(42, 58, 86, 0.1) 48%, transparent 76%);
+  background: radial-gradient(circle, rgba(186, 230, 253, 0.34), rgba(255, 255, 255, 0.2) 48%, transparent 76%);
   animation-duration: 26s;
 }
 
@@ -197,22 +197,22 @@ onBeforeUnmount(() => {
   left: 28%;
   width: 40vw;
   height: 18vw;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.11), rgba(51, 61, 77, 0.08) 52%, transparent 80%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(125, 211, 252, 0.12) 52%, transparent 80%);
   animation-duration: 30s;
 }
 
 .ambient-starfield__dust {
   position: absolute;
   inset: 0;
-  opacity: 0.42;
+  opacity: 0.36;
   background-image:
-    radial-gradient(circle at 18% 26%, rgba(255, 255, 255, 0.28) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 34% 68%, rgba(148, 180, 255, 0.18) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 62% 22%, rgba(255, 255, 255, 0.22) 0 1px, transparent 1.6px),
-    radial-gradient(circle at 84% 42%, rgba(140, 175, 255, 0.16) 0 1px, transparent 1.4px),
-    radial-gradient(circle at 72% 78%, rgba(255, 255, 255, 0.2) 0 1px, transparent 1.5px);
+    radial-gradient(circle at 18% 26%, rgba(14, 165, 233, 0.18) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 34% 68%, rgba(125, 211, 252, 0.22) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 62% 22%, rgba(14, 137, 212, 0.14) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 84% 42%, rgba(125, 211, 252, 0.18) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 72% 78%, rgba(14, 165, 233, 0.16) 0 1px, transparent 1.5px);
   background-size: 420px 420px, 560px 560px, 500px 500px, 620px 620px, 460px 460px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.3));
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.2));
 }
 
 .ambient-starfield__canvas {

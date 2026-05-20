@@ -87,10 +87,12 @@
             <ComposerPanel
               ref="composerPanelRef"
               v-model="composerText"
+              :tool-options="toolOptions"
               :loading-send="loading.send"
               :loading-upload="loading.upload"
               :status-text="chatStatusText"
               :pending-attachments="pendingAttachments"
+              @update:tool-options="Object.assign(toolOptions, $event)"
               @attach="triggerChatFilePicker"
               @send="handleSendMessage"
             />
@@ -103,6 +105,7 @@
       <section class="page-view page-view--standard" :class="{ active: currentPage === 'kb' }">
         <KnowledgeList
           v-model:search="knowledgeSearch"
+          v-model:url-value="knowledgeUrl"
           :stats="knowledgeStats"
           :summary-text="knowledgeSummaryText"
           :documents="filteredKnowledgeDocuments"
@@ -111,6 +114,7 @@
           :format-size="formatSize"
           :format-date="formatDate"
           @import="triggerKnowledgeFilePicker"
+          @import-url="handleImportKnowledgeUrl"
           @clear="handleClearKnowledge"
           @delete="handleDeleteKnowledgeDocument"
         />
@@ -223,6 +227,7 @@ import {
   fetchRuntimeSettings,
   fetchWorkspace,
   importKnowledgeFiles,
+  importKnowledgeUrl,
   importModelConfig,
   renameChatSession,
   saveRuntimeSettings,
@@ -311,6 +316,7 @@ const settingsFormRef = ref(null);
 const configImportInputRef = ref(null);
 const composerText = ref("");
 const knowledgeSearch = ref("");
+const knowledgeUrl = ref("");
 const switchingAgentId = ref("");
 let activeStreamAbortController = null;
 
@@ -343,6 +349,13 @@ const providerTemplates = ref([]);
 const recentSuccessfulModels = ref([]);
 const connectionHistory = ref([]);
 const availableRemoteModels = ref([]);
+const toolOptions = reactive({
+  useTools: false,
+  useWebSearch: false,
+  useStructuredOutput: false,
+  useHybridRetrieval: true,
+  useImageVision: true
+});
 
 const activeAgent = computed(() => workspace.activeAgent);
 const sessionAttachments = computed(() => workspace.activeSession?.attachments || []);
@@ -742,7 +755,8 @@ async function handleSendMessage() {
     const payload = {
       sessionId,
       content: composerText.value.trim() || "请结合我刚上传的资料给出分析。",
-      attachmentIds: pendingAttachments.value.map((item) => item.id)
+      attachmentIds: pendingAttachments.value.map((item) => item.id),
+      ...toolOptions
     };
 
     composerText.value = "";
@@ -877,6 +891,26 @@ async function handleKnowledgeFileChange(event) {
     ElMessage.success(`已导入 ${files.length} 份知识文档`);
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "导入知识文档失败"));
+  } finally {
+    loading.importing = false;
+  }
+}
+
+async function handleImportKnowledgeUrl() {
+  const url = knowledgeUrl.value.trim();
+  if (!url) {
+    ElMessage.warning("请先粘贴网页 URL");
+    return;
+  }
+
+  loading.importing = true;
+  try {
+    await importKnowledgeUrl({ url });
+    knowledgeUrl.value = "";
+    await refreshKnowledge();
+    ElMessage.success("网页已导入知识库");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "导入网页失败"));
   } finally {
     loading.importing = false;
   }
@@ -1118,7 +1152,8 @@ watch(currentPage, async (page) => {
 
 <style scoped>
 .study-shell {
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   display: flex;
   overflow: hidden;
   background: transparent;
@@ -1152,7 +1187,7 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border-radius: 18px;
   background: var(--bg-surface);
-  color: #d9e7ff;
+  color: var(--brand-blue);
   border: 1px solid var(--border-primary);
   box-shadow: var(--shadow-card);
 }
@@ -1166,7 +1201,7 @@ watch(currentPage, async (page) => {
   border: none;
   border-radius: 14px;
   background: transparent;
-  color: rgba(214, 229, 255, 0.82);
+  color: var(--text-nav);
   cursor: pointer;
   transition: 0.2s ease-in-out;
 }
@@ -1174,7 +1209,7 @@ watch(currentPage, async (page) => {
 .nav-button:hover,
 .nav-button--active {
   background: var(--bg-surface);
-  color: #f3f8ff;
+  color: var(--text-nav-active);
   box-shadow: var(--shadow-card);
 }
 
@@ -1192,7 +1227,8 @@ watch(currentPage, async (page) => {
 
 .workspace-main {
   flex: 1;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1207,17 +1243,18 @@ watch(currentPage, async (page) => {
 
 .page-view.active {
   display: flex;
+  min-height: 0;
 }
 
 .page-view--chat {
-  height: 100vh;
+  height: 100%;
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
 }
 
 .page-view--standard {
-  min-height: 100vh;
+  min-height: 100%;
   flex-direction: column;
   padding: 32px;
   overflow-y: auto;
@@ -1286,13 +1323,13 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border: none;
   background: transparent;
-  color: #c4d3ea;
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .clear-button:hover {
-  color: #f3f8ff;
+  color: var(--brand-blue);
 }
 
 .action-icon {
@@ -1304,7 +1341,7 @@ watch(currentPage, async (page) => {
 
 .chat-layout {
   flex: 1;
-  height: calc(100vh - 64px);
+  height: 100%;
   min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 320px;
@@ -1369,7 +1406,7 @@ watch(currentPage, async (page) => {
 }
 
 .market-card--active {
-  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.8) inset;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.42) inset;
 }
 
 .market-card__top {
@@ -1392,18 +1429,18 @@ watch(currentPage, async (page) => {
 }
 
 .market-card__icon--blue {
-  background: var(--brand-blue-border);
-  color: #eef5ff;
+  background: var(--brand-blue-light);
+  color: var(--brand-blue);
 }
 
 .market-card__icon--orange {
-  background: rgba(120, 74, 27, 0.28);
-  color: #f4b26b;
+  background: rgba(251, 191, 36, 0.16);
+  color: #b7791f;
 }
 
 .market-card__icon--emerald {
-  background: rgba(26, 94, 76, 0.28);
-  color: #64d5b0;
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--color-success);
 }
 
 .market-card__badge {
@@ -1415,7 +1452,7 @@ watch(currentPage, async (page) => {
 }
 
 .market-card__badge--active {
-  background: var(--brand-blue-border);
+  background: var(--brand-blue-light);
   color: var(--color-info);
 }
 
@@ -1518,6 +1555,18 @@ button:disabled {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-height: 920px) {
+  .top-bar {
+    min-height: 56px;
+    height: 56px;
+    padding: 0 24px;
+  }
+
+  .page-view--standard {
+    padding: 24px;
   }
 }
 </style>

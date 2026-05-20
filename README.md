@@ -1,128 +1,165 @@
-# 基于大模型的智能体学习桌面应用
+# AI 学习多智能体工作台
 
-这是一个基于 `Electron + Vue 3 + Express + SQLite` 的本地桌面学习软件。项目围绕"学习工作区"展开，支持 AI 聊天、历史会话、知识库导入、检索增强回答、智能体切换，以及外部模型配置。
+一个基于 `Electron + Vue 3 + Express + SQLite` 的本地学习工作台，支持聊天问答、知识库导入、学习工作流、统计分析，以及面向大模型的工具调用、联网搜索、结构化输出、混合检索和图片识别输入。
 
 ## 当前能力
 
-- 学习工作区：固定布局聊天页，消息区独立滚动
-- 历史会话：新建、切换、重命名、删除、清空
-- 流式聊天：AI 回复按分片实时输出
-- Markdown 渲染：支持 GFM 表格、代码语法高亮（highlight.js）、LaTeX 数学公式（KaTeX）
-- 暗色模式：亮色 / 暗色 / 跟随系统三态切换，所有页面自动适配
-- 知识库：导入文档、查看列表、删除文档、清空知识库
-- 检索增强：上传资料后按分块建立索引，聊天时自动召回相关片段
-- 引用展示：聊天回答可携带来源文档信息
-- 智能体切换：工作区支持切换当前学习智能体
-- 运行时配置：从系统"文档"目录读取和保存 API 配置
-- 配置实时刷新：外部修改配置文件后，页面可自动同步
-- 学习仪表盘：真实数据统计（会话/消息/文档/练习趋势），ECharts 可视化图表
-- 学习工作流：诊断、计划、资源生成、练习、反馈评估（LLM 驱动）
+- 本地桌面端运行，前端、后端和 Electron 打包在同一项目内
+- 聊天工作区支持历史会话、附件上传、快捷提示词和引用展示
+- 知识库支持文本文件导入、URL 网页导入、文档切片和本地检索
+- 支持五个对话能力开关
+  - `工具`：允许模型调用本地工具
+  - `联网`：允许模型联网搜索公开网页
+  - `结构化`：要求模型返回 JSON 结构化结果
+  - `混合检索`：启用关键词 + 向量 + rerank 检索
+  - `识图`：将图片附件作为视觉输入传给支持视觉的模型
+- 学习工作流支持诊断、计划、资源生成、练习题和反馈
+- 统计页支持会话、消息、知识库和练习数据概览
+- Markdown / 代码高亮 / LaTeX 渲染
 
-## 技术栈
+## 新增能力说明
 
-- 桌面壳：Electron
-- 前端：Vue 3、Vue Router、Pinia、Vite、Element Plus、ECharts
-- Markdown 渲染：marked、highlight.js、KaTeX、DOMPurify
-- 后端：Express
-- 数据库：SQLite、FTS5
-- 文档解析：`pdf-parse`、`mammoth`
+本次已接入并可直接使用的增强能力：
+
+1. 工具调用 + 结构化输出
+   - 后端支持 `search_knowledge` 与 `web_search` 两类工具调用
+   - 启用 `结构化` 后，请求会附带 JSON 输出约束
+2. 网页搜索 + URL 导入
+   - 聊天中可启用联网搜索
+   - 知识库页面支持直接输入 URL 导入网页正文
+3. 向量检索 / 混合检索 / rerank
+   - 检索已从纯 FTS5 升级为关键词召回 + 本地轻量向量 + rerank
+4. 图片解码与视觉输入
+   - 图片附件会保存为 data URL
+   - 启用 `识图` 时，系统会按多模态 `image_url` 格式把图片发给模型
 
 ## 目录结构
 
 ```text
 .
 ├─ 1/
-│  ├─ electron/                 Electron 主进程与 preload
-│  ├─ renderer/                 Vue 前端
-│  │  ├─ src/
-│  │  │  ├─ components/workspace/  聊天工作区拆分组件
-│  │  │  ├─ composables/           运行时配置订阅
-│  │  │  ├─ services/              API 接口层
-│  │  │  ├─ stores/                Pinia 状态（runtime / theme）
-│  │  │  ├─ styles/                CSS 变量体系 + 明暗主题
-│  │  │  ├─ utils/                 markdownRenderer / workspaceFormatters
-│  │  │  └─ views/                 页面（含 AnalyticsView 仪表盘）
-│  │  └─ index.html
-│  ├─ server/                   Express 后端
-│  │  ├─ src/
-│  │  │  ├─ routes/               HTTP 路由（含 analytics）
-│  │  │  ├─ services/             核心业务逻辑（含 analyticsService / learningWorkflowService）
-│  │  │  ├─ utils/                工具（含 llmClient）
-│  │  │  ├─ db/                   数据库 schema
-│  │  │  └─ config/               数据库连接配置
-│  │  ├─ data/                    本地 SQLite 数据库目录
-│  │  └─ test/                    集成测试
+│  ├─ electron/                  Electron 主进程与 preload
+│  ├─ renderer/                  Vue 3 前端
+│  │  └─ src/
+│  │     ├─ components/workspace/
+│  │     ├─ services/
+│  │     ├─ stores/
+│  │     ├─ styles/
+│  │     ├─ utils/
+│  │     └─ views/
+│  ├─ server/                    Express 后端
+│  │  └─ src/
+│  │     ├─ config/
+│  │     ├─ db/
+│  │     ├─ routes/
+│  │     ├─ services/
+│  │     ├─ test/
+│  │     └─ utils/
 │  └─ package.json
-├─ 前端设计/                     设计稿与原始静态页面
 ├─ README.md
 ├─ API文档.md
 ├─ 维护文档.md
 └─ 详细技术说明文档.md
 ```
 
-## 启动方式
+## 运行要求
 
-在项目应用目录执行：
+- Windows 10/11
+- Node.js `>= 18.18.0`
+- npm `>= 9`
+
+当前项目已在本机验证通过：
+
+- `npm run build`
+- `npm test`
+
+## 安装与启动
+
+进入实际应用目录：
 
 ```powershell
-cd "E:\基于Deepseek的智能体学习软件\1"
+cd "F:\AI 学习多智能体工作台\agent-main\1"
+```
+
+安装依赖：
+
+```powershell
 npm install
+```
+
+启动开发环境：
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 npm run dev
 ```
 
-常用命令：
+说明：
 
-```powershell
-npm run build
-npm test
-```
+- 当前 Electron 启动前建议先清理 `ELECTRON_RUN_AS_NODE` 环境变量，否则桌面窗口可能起不来
+- `npm run dev` 会同时启动：
+  - Vite 前端
+  - Express 后端
+  - Electron 桌面进程
 
 默认端口：
 
-- 前端开发服务器：`5173`
-- 后端接口服务：`3001`
+- 前端：`http://127.0.0.1:5173`
+- 后端：`http://127.0.0.1:3001`
 
-## 配置与数据位置
+## 其他脚本
 
-运行时 API 配置不保存在项目目录内，而是保存在当前系统用户的"文档"目录：
+构建：
+
+```powershell
+cd "F:\AI 学习多智能体工作台\agent-main\1"
+npm run build
+```
+
+测试：
+
+```powershell
+cd "F:\AI 学习多智能体工作台\agent-main\1"
+npm test
+```
+
+## 关键实现位置
+
+- 聊天与工具调用：`1/server/src/services/chatWorkspaceService.js`
+- 混合检索：`1/server/src/services/ragService.js`
+- 网页抓取与搜索：`1/server/src/services/webToolService.js`
+- 知识库导入：`1/server/src/services/knowledgeBaseService.js`
+- 聊天输入区：`1/renderer/src/components/workspace/ComposerPanel.vue`
+- 知识库列表：`1/renderer/src/components/workspace/KnowledgeList.vue`
+
+## 配置与数据
+
+运行时模型配置默认保存在：
 
 ```text
 文档\agent API\runtime-config.json
 ```
 
-说明：
+SQLite 数据库默认位于：
 
-- Windows 下会优先自动读取系统真实"文档"目录
-- `API Key` 采用当前用户上下文保护，不再明文保存
-- 本地数据库默认位于 `1/server/data/app.db`
-
-## 主要页面
-
-- 聊天页：历史会话、消息流式输出、附件上传、引用展示、Markdown/LaTeX 渲染
-- 知识库页：文档导入、检索列表、统计展示
-- 智能体页：查看并切换当前学习智能体
-- 仪表盘页：学习数据可视化（活跃度趋势、练习得分、文档分布）
-- 设置页：配置模型提供方、接口地址、模型 ID、系统提示词
-
-## 当前测试覆盖
-
-项目已包含一组最小集成测试，覆盖以下核心链路：
-
-- 聊天接口本地回复
-- 聊天流式输出
-- 知识库导入与查询
-- 设置保存与读取
-- 接口 schema 校验
-
-执行命令：
-
-```powershell
-cd "E:\基于Deepseek的智能体学习软件\1"
-npm test
+```text
+1/server/data/app.db
 ```
 
-## 补充文档
+数据库中与本次新增能力相关的关键字段：
+
+- `chat_attachments.content_data`
+- `document_chunks.embedding_json`
+
+## 已知注意事项
+
+- `识图` 只有在当前模型本身支持视觉输入时才会生效
+- `联网` 依赖外部网络可访问 DuckDuckGo 结果页和目标网页
+- 启用 `工具` 或 `结构化` 时，回复会走工具/整合逻辑，观感上可能与普通流式回答略有不同
+- URL 导入目前提取的是网页正文文本，不保留复杂版式
+
+## 文档索引
 
 - 接口说明见 [API文档.md](./API文档.md)
 - 维护说明见 [维护文档.md](./维护文档.md)
-- 技术架构见 [详细技术说明文档.md](./详细技术说明文档.md)
+- 架构与实现细节见 [详细技术说明文档.md](./详细技术说明文档.md)

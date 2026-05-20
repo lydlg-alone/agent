@@ -7,6 +7,7 @@ import { getRuntimeCredentials } from "./runtimeConfigService.js";
 import { chunkText } from "./chunkingService.js";
 import { parseDocumentFromUpload } from "./documentParserService.js";
 import { buildCitationPrompt, indexChunks, removeChunks, searchChunks } from "./ragService.js";
+import { buildWebSearchPrompt, searchWeb } from "./webToolService.js";
 
 const REQUIRED_AGENT_DEFINITIONS = [
   {
@@ -237,7 +238,7 @@ function listSessions() {
 function getAttachmentsBySession(sessionId) {
   return getDb()
     .prepare(
-      `SELECT id, name, mime_type, size_bytes, content_excerpt, created_at
+      `SELECT id, name, mime_type, size_bytes, content_excerpt, content_data, created_at
        FROM chat_attachments
        WHERE session_id = ?
        ORDER BY created_at ASC`
@@ -249,6 +250,7 @@ function getAttachmentsBySession(sessionId) {
       mimeType: item.mime_type,
       sizeBytes: Number(item.size_bytes || 0),
       contentExcerpt: item.content_excerpt || "",
+      contentData: item.content_data || "",
       createdAt: item.created_at
     }));
 }
@@ -311,8 +313,23 @@ function serializeAttachmentRefs(attachments) {
     id: item.id,
     name: item.name,
     mimeType: item.mimeType,
-    sizeBytes: item.sizeBytes
+    sizeBytes: item.sizeBytes,
+    isImage: isImageAttachment(item)
   }));
+}
+
+function isImageAttachment(attachment) {
+  return String(attachment?.mimeType || "").startsWith("image/");
+}
+
+function buildToolOptions(payload = {}) {
+  return {
+    useTools: Boolean(payload.useTools || payload.useWebSearch),
+    useWebSearch: Boolean(payload.useWebSearch),
+    useStructuredOutput: Boolean(payload.useStructuredOutput),
+    useHybridRetrieval: payload.useHybridRetrieval !== false,
+    useImageVision: payload.useImageVision !== false
+  };
 }
 
 function pickRelevantKnowledgeBases(content, attachments) {
@@ -373,7 +390,52 @@ function normalizeHistoryMessages(messages) {
     }));
 }
 
-function buildModelMessages({ session, userContent, attachments, activeAgent, relatedKnowledgeBases, runtime, ragContext }) {
+function buildStructuredOutputInstruction() {
+  return [
+    "当启用结构化输出时，请只返回合法 JSON，不要使用 Markdown。",
+    "JSON 字段：answer(string)、key_points(string[])、next_actions(string[])、citations(string[])、confidence(number)。"
+  ].join("\n");
+}
+
+function buildUserMessageContent(userContent, attachments, toolOptions) {
+  const textBlocks = [String(userContent || "").trim()];
+  if (attachments.length) {
+    textBlocks.push(`本轮附件：${attachments.map((item) => item.name).join("、")}`);
+  }
+
+  const imageAttachments = toolOptions.useImageVision
+    ? attachments.filter((item) => isImageAttachment(item) && item.contentData)
+    : [];
+
+  if (!imageAttachments.length) {
+    return textBlocks.join("\n\n");
+  }
+
+  return [
+    {
+      type: "text",
+      text: `${textBlocks.join("\n\n")}\n\n请同时分析随消息附带的图片内容。`
+    },
+    ...imageAttachments.map((item) => ({
+      type: "image_url",
+      image_url: {
+        url: item.contentData
+      }
+    }))
+  ];
+}
+
+function buildModelMessages({
+  session,
+  userContent,
+  attachments,
+  activeAgent,
+  relatedKnowledgeBases,
+  runtime,
+  ragContext,
+  webContext,
+  toolOptions
+}) {
   const systemBlocks = [];
 
   if (runtime.systemPrompt) {
@@ -410,17 +472,20 @@ function buildModelMessages({ session, userContent, attachments, activeAgent, re
     systemBlocks.push(ragContext.promptText);
   }
 
-  systemBlocks.push("请使用简体中文回答，尽量直接、准确，并给出可执行建议。");
-
-  const userBlocks = [String(userContent || "").trim()];
-  if (attachments.length) {
-    userBlocks.push(`本轮附件：${attachments.map((item) => item.name).join("、")}`);
+  if (webContext?.promptText) {
+    systemBlocks.push(webContext.promptText);
   }
+
+  if (toolOptions.useStructuredOutput) {
+    systemBlocks.push(buildStructuredOutputInstruction());
+  }
+
+  systemBlocks.push("请使用简体中文回答，尽量直接、准确，并给出可执行建议。");
 
   return [
     { role: "system", content: systemBlocks.join("\n\n") },
     ...normalizeHistoryMessages(session.messages),
-    { role: "user", content: userBlocks.join("\n\n") }
+    { role: "user", content: buildUserMessageContent(userContent, attachments, toolOptions) }
   ];
 }
 
@@ -486,35 +551,188 @@ function extractStreamDelta(payload) {
   );
 }
 
-async function requestModelReply({ session, userContent, attachments, activeAgent, relatedKnowledgeBases, ragContext }) {
+function buildToolDefinitions(toolOptions) {
+  if (!toolOptions.useTools) {
+    return [];
+  }
+
+  const tools = [
+    {
+      type: "function",
+      function: {
+        name: "search_knowledge",
+        description: "检索本地知识库和聊天附件，返回最相关的资料片段。",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "检索问题或关键词" },
+            topK: { type: "integer", description: "返回条数，默认 5" }
+          },
+          required: ["query"]
+        }
+      }
+    }
+  ];
+
+  if (toolOptions.useWebSearch) {
+    tools.push({
+      type: "function",
+      function: {
+        name: "web_search",
+        description: "搜索公开网页，返回标题、链接和摘要。",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "搜索问题或关键词" },
+            topK: { type: "integer", description: "返回条数，默认 5" }
+          },
+          required: ["query"]
+        }
+      }
+    });
+  }
+
+  return tools;
+}
+
+function extractToolCalls(data) {
+  const message = data?.choices?.[0]?.message;
+  return Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+}
+
+function safeParseToolArguments(value) {
+  try {
+    return JSON.parse(value || "{}");
+  } catch {
+    return {};
+  }
+}
+
+async function executeToolCall(toolCall, context) {
+  const name = toolCall?.function?.name || "";
+  const args = safeParseToolArguments(toolCall?.function?.arguments);
+  const query = String(args.query || context.userContent || "").trim();
+  const topK = Math.max(1, Math.min(Number(args.topK || 5), 8));
+
+  if (name === "search_knowledge") {
+    return {
+      name,
+      result: searchChunks(query, {
+        topK,
+        mode: context.toolOptions.useHybridRetrieval ? "hybrid" : "keyword",
+        rerank: true
+      }).map((item) => ({
+        sourceName: item.sourceName,
+        score: item.score,
+        snippet: item.content.slice(0, 500)
+      }))
+    };
+  }
+
+  if (name === "web_search") {
+    return {
+      name,
+      result: await searchWeb(query, { topK })
+    };
+  }
+
+  return {
+    name,
+    result: `未知工具：${name}`
+  };
+}
+
+function buildModelRequestBody({ modelId, messages, toolOptions, tools = [] }) {
+  const body = {
+    model: modelId,
+    messages,
+    temperature: 0.7
+  };
+
+  if (tools.length) {
+    body.tools = tools;
+    body.tool_choice = "auto";
+  }
+
+  if (toolOptions.useStructuredOutput) {
+    body.response_format = { type: "json_object" };
+  }
+
+  return body;
+}
+
+async function requestChatCompletion(runtime, body, options = {}) {
+  return await axios.post(buildApiUrl(runtime.baseUrl, "/chat/completions"), body, {
+    headers: {
+      Authorization: `Bearer ${runtime.apiKey}`,
+      "Content-Type": "application/json"
+    },
+    timeout: options.timeout || 45000,
+    responseType: options.responseType
+  });
+}
+
+async function requestModelReply(context) {
+  const { session, userContent, attachments, activeAgent, relatedKnowledgeBases, ragContext, webContext, toolOptions } = context;
   const { runtime, available, modelId } = maskRuntimeAccess();
   if (!available) {
     return null;
   }
 
-  const response = await axios.post(
-    buildApiUrl(runtime.baseUrl, "/chat/completions"),
-    {
-      model: modelId,
-      messages: buildModelMessages({
-        session,
-        userContent,
-        attachments,
-        activeAgent,
-        relatedKnowledgeBases,
-        runtime,
-        ragContext
-      }),
-      temperature: 0.7
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${runtime.apiKey}`,
-        "Content-Type": "application/json"
-      },
-      timeout: 45000
-    }
+  const messages = buildModelMessages({
+    session,
+    userContent,
+    attachments,
+    activeAgent,
+    relatedKnowledgeBases,
+    runtime,
+    ragContext,
+    webContext,
+    toolOptions
+  });
+  const tools = buildToolDefinitions(toolOptions);
+  const response = await requestChatCompletion(
+    runtime,
+    buildModelRequestBody({ modelId, messages, toolOptions, tools })
   );
+
+  const toolCalls = extractToolCalls(response.data);
+  if (toolCalls.length) {
+    const toolMessages = [];
+    for (const toolCall of toolCalls) {
+      const toolResult = await executeToolCall(toolCall, context);
+      toolMessages.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(toolResult, null, 2)
+      });
+    }
+
+    const followupResponse = await requestChatCompletion(
+      runtime,
+      buildModelRequestBody({
+        modelId,
+        messages: [
+          ...messages,
+          response.data.choices[0].message,
+          ...toolMessages
+        ],
+        toolOptions,
+        tools: []
+      }),
+      { timeout: 60000 }
+    );
+
+    const followupContent = extractAssistantContent(followupResponse.data);
+    if (!followupContent) {
+      throw new Error("模型工具调用成功，但最终回答为空。");
+    }
+
+    return {
+      content: followupContent,
+      source: "api"
+    };
+  }
 
   const content = extractAssistantContent(response.data);
   if (!content) {
@@ -528,38 +746,48 @@ async function requestModelReply({ session, userContent, attachments, activeAgen
 }
 
 async function requestModelReplyStream(
-  { session, userContent, attachments, activeAgent, relatedKnowledgeBases, ragContext },
+  context,
   onDelta
 ) {
+  const { session, userContent, attachments, activeAgent, relatedKnowledgeBases, ragContext, webContext, toolOptions } = context;
+  if (toolOptions.useTools || toolOptions.useStructuredOutput) {
+    const reply = await requestModelReply(context);
+    if (!reply) {
+      return null;
+    }
+
+    return {
+      ...reply,
+      content: await streamTextByChunks(reply.content, onDelta)
+    };
+  }
+
   const { runtime, available, modelId } = maskRuntimeAccess();
   if (!available) {
     return null;
   }
 
-  const response = await axios.post(
-    buildApiUrl(runtime.baseUrl, "/chat/completions"),
+  const response = await requestChatCompletion(
+    runtime,
     {
-      model: modelId,
-      stream: true,
-      messages: buildModelMessages({
-        session,
-        userContent,
-        attachments,
-        activeAgent,
-        relatedKnowledgeBases,
-        runtime,
-        ragContext
+      ...buildModelRequestBody({
+        modelId,
+        messages: buildModelMessages({
+          session,
+          userContent,
+          attachments,
+          activeAgent,
+          relatedKnowledgeBases,
+          runtime,
+          ragContext,
+          webContext,
+          toolOptions
+        }),
+        toolOptions
       }),
-      temperature: 0.7
+      stream: true
     },
-    {
-      headers: {
-        Authorization: `Bearer ${runtime.apiKey}`,
-        "Content-Type": "application/json"
-      },
-      responseType: "stream",
-      timeout: 60000
-    }
+    { responseType: "stream", timeout: 60000 }
   );
 
   return await new Promise((resolve, reject) => {
@@ -681,6 +909,10 @@ function insertMessage(record) {
 }
 
 async function maybeIndexAttachment(record, payloadContentText) {
+  if (isImageAttachment(record)) {
+    return record.contentExcerpt;
+  }
+
   const source = String(payloadContentText || "").trim();
   if (!source) {
     return record.contentExcerpt;
@@ -721,7 +953,7 @@ async function buildMessageContext(payload) {
   const attachments = attachmentIds.length
     ? db
         .prepare(
-          `SELECT id, name, mime_type, size_bytes, content_excerpt
+          `SELECT id, name, mime_type, size_bytes, content_excerpt, content_data
            FROM chat_attachments
            WHERE session_id = ? AND id IN (${attachmentIds.map(() => "?").join(",")})`
         )
@@ -731,22 +963,41 @@ async function buildMessageContext(payload) {
           name: item.name,
           mimeType: item.mime_type,
           sizeBytes: Number(item.size_bytes || 0),
-          contentExcerpt: item.content_excerpt || ""
+          contentExcerpt: item.content_excerpt || "",
+          contentData: item.content_data || ""
         }))
     : [];
 
   const userContent = String(payload.content || "").trim();
+  const toolOptions = buildToolOptions(payload);
   const activeAgent = getActiveAgent();
   const relatedKnowledgeBases = pickRelevantKnowledgeBases(userContent, attachments);
 
   let ragContext = { promptText: "", citationMeta: [] };
   try {
-    const retrievedChunks = searchChunks(userContent, { topK: 5 });
+    const retrievedChunks = searchChunks(userContent, {
+      topK: 5,
+      mode: toolOptions.useHybridRetrieval ? "hybrid" : "keyword",
+      rerank: true
+    });
     if (retrievedChunks.length) {
       ragContext = buildCitationPrompt(retrievedChunks);
     }
   } catch (error) {
     console.error("RAG search failed:", error.message);
+  }
+
+  let webContext = { promptText: "", results: [] };
+  if (toolOptions.useWebSearch && userContent) {
+    try {
+      const webResults = await searchWeb(userContent, { topK: 5 });
+      webContext = {
+        promptText: buildWebSearchPrompt(webResults),
+        results: webResults
+      };
+    } catch (error) {
+      console.error("Web search failed:", error.message);
+    }
   }
 
   const agentStatuses = buildAgentStatuses({
@@ -764,6 +1015,8 @@ async function buildMessageContext(payload) {
     activeAgent,
     relatedKnowledgeBases,
     ragContext,
+    webContext,
+    toolOptions,
     agentStatuses,
     userMessage: {
       id: createId("msg"),
@@ -943,17 +1196,29 @@ export async function uploadAttachment(payload) {
     name: payload.name,
     mimeType: payload.mimeType || "application/octet-stream",
     sizeBytes: Number(payload.sizeBytes || 0),
-    contentExcerpt: String(payload.contentText || "").slice(0, 1600),
+    contentExcerpt: isImageAttachment(payload)
+      ? `图片附件：${payload.name}。已解码为 data URL，将在启用图片识别时发送给支持视觉的模型。`
+      : String(payload.contentText || "").slice(0, 1600),
+    contentData: isImageAttachment(payload) ? String(payload.contentText || "") : "",
     createdAt: new Date().toISOString()
   };
 
   getDb()
     .prepare(
       `INSERT INTO chat_attachments (
-        id, session_id, name, mime_type, size_bytes, content_excerpt, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+        id, session_id, name, mime_type, size_bytes, content_excerpt, content_data, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(record.id, record.sessionId, record.name, record.mimeType, record.sizeBytes, record.contentExcerpt, record.createdAt);
+    .run(
+      record.id,
+      record.sessionId,
+      record.name,
+      record.mimeType,
+      record.sizeBytes,
+      record.contentExcerpt,
+      record.contentData,
+      record.createdAt
+    );
 
   record.contentExcerpt = await maybeIndexAttachment(record, payload.contentText);
   updateSessionActivity(sessionId);
@@ -965,6 +1230,7 @@ export async function uploadAttachment(payload) {
     mimeType: record.mimeType,
     sizeBytes: record.sizeBytes,
     contentExcerpt: record.contentExcerpt,
+    isImage: isImageAttachment(record),
     createdAt: record.createdAt
   };
 }
@@ -975,14 +1241,7 @@ export async function sendMessage(payload) {
   let assistantReply;
   try {
     assistantReply =
-      (await requestModelReply({
-        session: context.session,
-        userContent: context.userContent,
-        attachments: context.attachments,
-        activeAgent: context.activeAgent,
-        relatedKnowledgeBases: context.relatedKnowledgeBases,
-        ragContext: context.ragContext
-      })) || {
+      (await requestModelReply(context)) || {
         content: buildLocalAssistantReply({
           content: context.userContent,
           attachments: context.attachments,
@@ -1032,14 +1291,7 @@ export async function streamMessage(payload, callbacks = {}) {
   try {
     assistantReply =
       (await requestModelReplyStream(
-        {
-          session: context.session,
-          userContent: context.userContent,
-          attachments: context.attachments,
-          activeAgent: context.activeAgent,
-          relatedKnowledgeBases: context.relatedKnowledgeBases,
-          ragContext: context.ragContext
-        },
+        context,
         (delta, content) => {
           callbacks.onDelta?.({
             delta,
