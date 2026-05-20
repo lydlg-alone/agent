@@ -1,140 +1,116 @@
 <template>
   <section class="analytics-dashboard">
     <header class="analytics-hero">
-      <div>
-        <p class="analytics-hero__eyebrow">学习仪表盘</p>
-        <h1 class="analytics-hero__title">把聊天、知识库和练习数据放到同一张总览里。</h1>
-        <p class="analytics-hero__subtitle">
-          这里展示最近活跃度、练习得分、知识文档构成和近期学习轨迹，方便快速判断当前学习节奏。
-        </p>
+      <div class="analytics-hero__titles">
+        <p class="analytics-hero__eyebrow">Analytics</p>
+        <h1 class="analytics-hero__title">学习仪表盘</h1>
       </div>
 
-      <button class="analytics-refresh" type="button" :disabled="loading" @click="loadData">
-        {{ loading ? "刷新中..." : "刷新数据" }}
-      </button>
+      <div class="analytics-hero__actions">
+        <span v-if="analytics" class="analytics-hero__badge">{{ headlineBadge }}</span>
+        <button class="analytics-refresh" type="button" :disabled="loading" @click="loadData">
+          {{ loading ? "刷新中..." : "刷新数据" }}
+        </button>
+      </div>
     </header>
 
     <div v-if="loading && !analytics" class="analytics-loading">
-      <div class="analytics-loading__card" v-for="index in 4" :key="index"></div>
+      <div v-for="index in 4" :key="index" class="analytics-loading__card"></div>
     </div>
 
     <template v-else-if="analytics">
-      <section class="analytics-overview">
-        <article
-          v-for="card in primaryCards"
-          :key="card.label"
-          class="overview-card"
-          :class="`overview-card--${card.tone}`"
-        >
-          <span class="overview-card__label">{{ card.label }}</span>
-          <strong class="overview-card__value">{{ card.value }}</strong>
-          <p class="overview-card__hint">{{ card.hint }}</p>
+      <section class="analytics-kpi-grid">
+        <article v-for="card in kpiCards" :key="card.key" class="dashboard-card dashboard-card--metric">
+          <div class="dashboard-card__header dashboard-card__header--tight">
+            <div>
+              <p class="dashboard-card__eyebrow">{{ card.eyebrow }}</p>
+              <h2 class="dashboard-card__title dashboard-card__title--small">{{ card.title }}</h2>
+            </div>
+            <span class="dashboard-card__badge dashboard-card__badge--muted">{{ card.badge }}</span>
+          </div>
+
+          <div :ref="bindMetricRef(card.key)" class="chart-box chart-box--metric"></div>
         </article>
       </section>
 
-      <section class="analytics-summary-strip">
-        <div class="summary-chip" v-for="item in secondaryCards" :key="item.label">
-          <span class="summary-chip__label">{{ item.label }}</span>
-          <strong class="summary-chip__value">{{ item.value }}</strong>
-        </div>
-      </section>
-
-      <section class="analytics-grid analytics-grid--top">
-        <article class="panel panel--activity">
-          <div class="panel__header">
+      <section class="analytics-grid analytics-grid--main">
+        <article class="dashboard-card dashboard-card--wide">
+          <div class="dashboard-card__header">
             <div>
-              <p class="panel__eyebrow">近 7 天</p>
-              <h2 class="panel__title">每日对话活跃度</h2>
+              <p class="dashboard-card__eyebrow">Conversation</p>
+              <h2 class="dashboard-card__title">近 7 天对话活跃度</h2>
             </div>
-            <div class="panel__legend">
-              <span class="legend-dot legend-dot--user"></span>
+            <div class="dashboard-card__legend">
+              <span class="legend-dot legend-dot--blue"></span>
               <span>用户消息</span>
-              <span class="legend-dot legend-dot--assistant"></span>
+              <span class="legend-dot legend-dot--teal"></span>
               <span>AI 回复</span>
             </div>
           </div>
 
-          <div v-if="hasActivityData" ref="activityChartRef" class="chart-box chart-box--activity"></div>
-          <div v-else class="panel-empty">最近 7 天还没有聊天数据。</div>
+          <div v-if="hasActivityData" ref="activityChartRef" class="chart-box chart-box--line"></div>
+          <div v-else class="dashboard-card__empty">最近 7 天还没有聊天数据。</div>
         </article>
 
-        <article class="panel panel--score">
-          <div class="panel__header">
+        <article class="dashboard-card">
+          <div class="dashboard-card__header">
             <div>
-              <p class="panel__eyebrow">近 30 天</p>
-              <h2 class="panel__title">练习得分趋势</h2>
+              <p class="dashboard-card__eyebrow">Practice</p>
+              <h2 class="dashboard-card__title">近 30 天得分趋势</h2>
             </div>
-            <strong class="panel__badge">{{ practiceAvgScore }}</strong>
+            <span class="dashboard-card__badge">{{ practiceBadge }}</span>
           </div>
 
-          <div v-if="hasScoreData" ref="scoreChartRef" class="chart-box chart-box--score"></div>
-          <div v-else class="panel-empty">还没有可展示的练习记录。</div>
+          <div v-if="hasScoreData" ref="scoreChartRef" class="chart-box chart-box--line"></div>
+          <div v-else class="dashboard-card__empty">还没有可展示的练习记录。</div>
         </article>
       </section>
 
-      <section class="analytics-grid analytics-grid--bottom">
-        <article class="panel panel--docs">
-          <div class="panel__header">
+      <section class="analytics-grid analytics-grid--detail">
+        <article class="dashboard-card">
+          <div class="dashboard-card__header">
             <div>
-              <p class="panel__eyebrow">知识库结构</p>
-              <h2 class="panel__title">文档类型分布</h2>
+              <p class="dashboard-card__eyebrow">Knowledge</p>
+              <h2 class="dashboard-card__title">文档类型分布</h2>
             </div>
-            <span class="panel__meta">{{ docTypeTotal }} 类</span>
+            <span class="dashboard-card__badge dashboard-card__badge--muted">{{ docTypeBadge }}</span>
           </div>
 
           <div v-if="hasDocTypeData" ref="docTypeChartRef" class="chart-box chart-box--donut"></div>
-          <div v-else class="panel-empty">暂无导入文档，导入后会自动生成分布图。</div>
+          <div v-else class="dashboard-card__empty">暂无导入文档，导入后会自动生成分布图。</div>
         </article>
 
-        <article class="panel panel--list">
-          <div class="panel__header">
+        <article class="dashboard-card">
+          <div class="dashboard-card__header">
             <div>
-              <p class="panel__eyebrow">最近导入</p>
-              <h2 class="panel__title">知识文档</h2>
+              <p class="dashboard-card__eyebrow">Documents</p>
+              <h2 class="dashboard-card__title">最近资料体量</h2>
             </div>
-            <span class="panel__meta">{{ recentDocuments.length }} 条</span>
+            <span class="dashboard-card__badge dashboard-card__badge--muted">{{ recentDocuments.length }} 条</span>
           </div>
 
-          <ul v-if="recentDocuments.length" class="entity-list">
-            <li v-for="doc in recentDocuments" :key="doc.id" class="entity-list__item">
-              <div class="entity-list__body">
-                <strong class="entity-list__title">{{ doc.name }}</strong>
-                <span class="entity-list__desc">{{ doc.sourceType }} · {{ formatSize(doc.sizeBytes) }}</span>
-              </div>
-              <time class="entity-list__time">{{ formatDate(doc.createdAt) }}</time>
-            </li>
-          </ul>
-          <div v-else class="panel-empty">暂无最近导入文档。</div>
+          <div v-if="hasRecentDocumentData" ref="recentDocsChartRef" class="chart-box chart-box--bar"></div>
+          <div v-else class="dashboard-card__empty">暂无最近导入文档。</div>
         </article>
 
-        <article class="panel panel--list">
-          <div class="panel__header">
+        <article class="dashboard-card">
+          <div class="dashboard-card__header">
             <div>
-              <p class="panel__eyebrow">最近会话</p>
-              <h2 class="panel__title">学习上下文</h2>
+              <p class="dashboard-card__eyebrow">Sessions</p>
+              <h2 class="dashboard-card__title">最近会话消息规模</h2>
             </div>
-            <span class="panel__meta">{{ recentSessions.length }} 条</span>
+            <span class="dashboard-card__badge dashboard-card__badge--muted">{{ recentSessions.length }} 条</span>
           </div>
 
-          <ul v-if="recentSessions.length" class="entity-list">
-            <li v-for="session in recentSessions" :key="session.id" class="entity-list__item">
-              <div class="entity-list__body">
-                <strong class="entity-list__title">{{ session.title }}</strong>
-                <span class="entity-list__desc">{{ session.messageCount }} 条消息</span>
-              </div>
-              <time class="entity-list__time">{{ formatDate(session.updatedAt) }}</time>
-            </li>
-          </ul>
-          <div v-else class="panel-empty">暂无最近会话。</div>
+          <div v-if="hasRecentSessionData" ref="recentSessionsChartRef" class="chart-box chart-box--bar"></div>
+          <div v-else class="dashboard-card__empty">暂无最近会话。</div>
         </article>
       </section>
     </template>
 
     <div v-else class="analytics-empty">
       <p class="analytics-empty__title">还没有可用的学习数据</p>
-      <span class="analytics-empty__desc">
-        开始聊天、导入知识库或提交练习答案后，这里会自动生成学习仪表盘。
-      </span>
+      <span class="analytics-empty__desc">开始聊天、导入知识库或提交练习答案后，这里会自动生成图表仪表盘。</span>
     </div>
   </section>
 </template>
@@ -142,13 +118,15 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import * as echarts from "echarts/core";
-import { LineChart, PieChart } from "echarts/charts";
-import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
+import { BarChart, LineChart, PieChart } from "echarts/charts";
+import { GraphicComponent, GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { fetchAnalytics } from "@/services/api.js";
 import { useThemeStore } from "@/stores/theme.js";
 
-echarts.use([LineChart, PieChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+echarts.use([BarChart, LineChart, PieChart, GraphicComponent, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+
+const palette = ["#005fb8", "#0c78da", "#1bb6a8", "#f59e0b", "#7c5cff", "#1f2937"];
 
 const themeStore = useThemeStore();
 
@@ -158,70 +136,189 @@ const loading = ref(false);
 const activityChartRef = ref(null);
 const scoreChartRef = ref(null);
 const docTypeChartRef = ref(null);
+const recentDocsChartRef = ref(null);
+const recentSessionsChartRef = ref(null);
+
+const metricRefs = new Map();
+const metricCharts = new Map();
 
 let activityChart = null;
 let scoreChart = null;
 let docTypeChart = null;
+let recentDocsChart = null;
+let recentSessionsChart = null;
 
 const counts = computed(() => analytics.value?.counts || {});
+const practiceSummary = computed(() => analytics.value?.practiceSummary || {});
 const recentDocuments = computed(() => analytics.value?.recentDocuments || []);
 const recentSessions = computed(() => analytics.value?.recentSessions || []);
-const practiceSummary = computed(() => analytics.value?.practiceSummary || {});
 
 const hasActivityData = computed(() => (analytics.value?.dailyActivity || []).length > 0);
 const hasScoreData = computed(() => (analytics.value?.scoreTrend || []).length > 0);
 const hasDocTypeData = computed(() => (analytics.value?.docTypeDistribution || []).length > 0);
-const docTypeTotal = computed(() => (analytics.value?.docTypeDistribution || []).length);
-const practiceAvgScore = computed(() => {
+const hasRecentDocumentData = computed(() => recentDocuments.value.length > 0);
+const hasRecentSessionData = computed(() => recentSessions.value.length > 0);
+
+const practiceBadge = computed(() => {
   const avg = Number(practiceSummary.value?.avgScore || 0);
   return avg ? `均分 ${avg}` : "暂无均分";
 });
 
-const primaryCards = computed(() => [
+const headlineBadge = computed(() => `总消息 ${counts.value.messages ?? 0} · 文档 ${counts.value.documents ?? 0}`);
+const docTypeBadge = computed(() => `${(analytics.value?.docTypeDistribution || []).length} 类`);
+
+const kpiCards = computed(() => [
   {
-    label: "聊天会话",
-    value: counts.value.sessions ?? 0,
-    hint: `累计消息 ${counts.value.messages ?? 0} 条`,
-    tone: "blue"
+    key: "messages",
+    eyebrow: "消息结构",
+    title: "用户与 AI 占比",
+    badge: `${counts.value.messages ?? 0} 条`,
+    centerText: `${counts.value.messages ?? 0}`,
+    footer: "总消息",
+    series: [
+      { name: "用户消息", value: Number(counts.value.userMessages || 0) },
+      { name: "AI 回复", value: Number(counts.value.assistantMessages || 0) }
+    ]
   },
   {
-    label: "知识文档",
-    value: counts.value.documents ?? 0,
-    hint: `总容量 ${formatSize(counts.value.totalDocSizeBytes ?? 0)}`,
-    tone: "emerald"
+    key: "knowledge",
+    eyebrow: "知识沉淀",
+    title: "知识库与文档",
+    badge: formatSize(counts.value.totalDocSizeBytes ?? 0),
+    centerText: `${counts.value.documents ?? 0}`,
+    footer: "文档数",
+    series: [
+      { name: "知识文档", value: Number(counts.value.documents || 0) },
+      { name: "知识库", value: Number(counts.value.knowledgeBases || 0) }
+    ]
   },
   {
-    label: "练习题",
-    value: counts.value.questions ?? 0,
-    hint: `已提交答案 ${counts.value.answers ?? 0} 次`,
-    tone: "amber"
+    key: "practice",
+    eyebrow: "练习进度",
+    title: "题目与已答次数",
+    badge: `${counts.value.answers ?? 0} 次`,
+    centerText: `${counts.value.questions ?? 0}`,
+    footer: "题目数",
+    series: [
+      { name: "练习题", value: Number(counts.value.questions || 0) },
+      { name: "已答题", value: Number(counts.value.answers || 0) }
+    ]
   },
   {
-    label: "学习资源",
-    value: counts.value.resources ?? 0,
-    hint: `学习计划 ${counts.value.plans ?? 0} 份`,
-    tone: "slate"
+    key: "assets",
+    eyebrow: "学习资产",
+    title: "计划、资源与智能体",
+    badge: `${counts.value.resources ?? 0} 份`,
+    centerText: `${counts.value.plans ?? 0}`,
+    footer: "计划数",
+    series: [
+      { name: "学习计划", value: Number(counts.value.plans || 0) },
+      { name: "学习资源", value: Number(counts.value.resources || 0) },
+      { name: "智能体", value: Number(counts.value.agents || 0) }
+    ]
   }
 ]);
 
-const secondaryCards = computed(() => [
-  { label: "用户消息", value: counts.value.userMessages ?? 0 },
-  { label: "AI 回复", value: counts.value.assistantMessages ?? 0 },
-  { label: "知识库", value: counts.value.knowledgeBases ?? 0 },
-  { label: "智能体", value: counts.value.agents ?? 0 },
-  { label: "收藏", value: counts.value.bookmarks ?? 0 }
-]);
+function bindMetricRef(key) {
+  return (element) => {
+    if (element) {
+      metricRefs.set(key, element);
+      return;
+    }
+    metricRefs.delete(key);
+  };
+}
 
-function buildAxisColor() {
+function axisColor() {
   return themeStore.isDark ? "#94a3b8" : "#64748b";
 }
 
-function buildSplitLineColor() {
+function splitLineColor() {
   return themeStore.isDark ? "rgba(148, 163, 184, 0.14)" : "rgba(15, 23, 42, 0.08)";
 }
 
-function buildActivityChart(data) {
-  if (!activityChartRef.value || !data?.length) {
+function panelBackground() {
+  return themeStore.isDark ? "#0f172a" : "#ffffff";
+}
+
+function panelBorder() {
+  return themeStore.isDark ? "#334155" : "#dbe5f0";
+}
+
+function baseTooltip() {
+  return {
+    backgroundColor: panelBackground(),
+    borderColor: panelBorder(),
+    textStyle: { color: themeStore.isDark ? "#e2e8f0" : "#0f172a" }
+  };
+}
+
+function buildMetricChart(card) {
+  const element = metricRefs.get(card.key);
+  if (!element) {
+    return null;
+  }
+
+  metricCharts.get(card.key)?.dispose();
+  const chart = echarts.init(element);
+
+  chart.setOption({
+    animationDuration: 360,
+    color: palette,
+    tooltip: {
+      trigger: "item",
+      ...baseTooltip()
+    },
+    series: [
+      {
+        type: "pie",
+        radius: ["56%", "78%"],
+        center: ["50%", "52%"],
+        label: { show: false },
+        labelLine: { show: false },
+        itemStyle: {
+          borderColor: panelBackground(),
+          borderWidth: 4
+        },
+        data: card.series.map((item) => ({
+          name: item.name,
+          value: Math.max(Number(item.value || 0), 0.0001)
+        }))
+      }
+    ],
+    graphic: [
+      {
+        type: "text",
+        left: "center",
+        top: "40%",
+        style: {
+          text: card.centerText,
+          fill: themeStore.isDark ? "#f8fafc" : "#0f172a",
+          fontSize: 28,
+          fontWeight: 700,
+          textAlign: "center"
+        }
+      },
+      {
+        type: "text",
+        left: "center",
+        top: "58%",
+        style: {
+          text: card.footer,
+          fill: axisColor(),
+          fontSize: 12,
+          textAlign: "center"
+        }
+      }
+    ]
+  });
+
+  metricCharts.set(card.key, chart);
+  return chart;
+}
+
+function buildActivityChart(rows) {
+  if (!activityChartRef.value || !rows?.length) {
     activityChart?.dispose();
     activityChart = null;
     return null;
@@ -231,31 +328,28 @@ function buildActivityChart(data) {
   const chart = echarts.init(activityChartRef.value);
 
   chart.setOption({
-    animationDuration: 400,
-    color: ["#2563eb", "#22c55e"],
+    animationDuration: 420,
+    color: [palette[0], palette[2]],
     tooltip: {
       trigger: "axis",
-      backgroundColor: themeStore.isDark ? "#0f172a" : "#ffffff",
-      borderColor: themeStore.isDark ? "#334155" : "#dbe5f0",
-      textStyle: { color: themeStore.isDark ? "#e2e8f0" : "#0f172a" }
+      ...baseTooltip()
     },
-    legend: { show: false },
-    grid: { left: 18, right: 18, top: 18, bottom: 12, containLabel: true },
+    grid: { left: 20, right: 20, top: 20, bottom: 14, containLabel: true },
     xAxis: {
       type: "category",
       boundaryGap: false,
-      data: data.map((item) => item.day),
-      axisLine: { lineStyle: { color: buildSplitLineColor() } },
+      data: rows.map((item) => item.day),
+      axisLine: { lineStyle: { color: splitLineColor() } },
       axisTick: { show: false },
-      axisLabel: { color: buildAxisColor() }
+      axisLabel: { color: axisColor() }
     },
     yAxis: {
       type: "value",
       minInterval: 1,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: buildAxisColor() },
-      splitLine: { lineStyle: { color: buildSplitLineColor() } }
+      axisLabel: { color: axisColor() },
+      splitLine: { lineStyle: { color: splitLineColor() } }
     },
     series: [
       {
@@ -265,8 +359,8 @@ function buildActivityChart(data) {
         symbol: "circle",
         symbolSize: 8,
         lineStyle: { width: 3 },
-        areaStyle: { color: "rgba(37, 99, 235, 0.10)" },
-        data: data.map((item) => Number(item.user_count || 0))
+        areaStyle: { color: "rgba(0, 95, 184, 0.10)" },
+        data: rows.map((item) => Number(item.user_count || 0))
       },
       {
         name: "AI 回复",
@@ -275,8 +369,8 @@ function buildActivityChart(data) {
         symbol: "circle",
         symbolSize: 8,
         lineStyle: { width: 3 },
-        areaStyle: { color: "rgba(34, 197, 94, 0.08)" },
-        data: data.map((item) => Number(item.assistant_count || 0))
+        areaStyle: { color: "rgba(27, 182, 168, 0.10)" },
+        data: rows.map((item) => Number(item.assistant_count || 0))
       }
     ]
   });
@@ -284,8 +378,8 @@ function buildActivityChart(data) {
   return chart;
 }
 
-function buildScoreChart(data) {
-  if (!scoreChartRef.value || !data?.length) {
+function buildScoreChart(rows) {
+  if (!scoreChartRef.value || !rows?.length) {
     scoreChart?.dispose();
     scoreChart = null;
     return null;
@@ -295,22 +389,20 @@ function buildScoreChart(data) {
   const chart = echarts.init(scoreChartRef.value);
 
   chart.setOption({
-    animationDuration: 400,
+    animationDuration: 420,
     tooltip: {
       trigger: "axis",
       formatter: (params) => `${params[0].axisValue}<br/>均分：${params[0].value}`,
-      backgroundColor: themeStore.isDark ? "#0f172a" : "#ffffff",
-      borderColor: themeStore.isDark ? "#334155" : "#dbe5f0",
-      textStyle: { color: themeStore.isDark ? "#e2e8f0" : "#0f172a" }
+      ...baseTooltip()
     },
-    grid: { left: 18, right: 18, top: 18, bottom: 18, containLabel: true },
+    grid: { left: 20, right: 20, top: 20, bottom: 14, containLabel: true },
     xAxis: {
       type: "category",
       boundaryGap: false,
-      data: data.map((item) => item.day),
-      axisLine: { lineStyle: { color: buildSplitLineColor() } },
+      data: rows.map((item) => item.day),
+      axisLine: { lineStyle: { color: splitLineColor() } },
       axisTick: { show: false },
-      axisLabel: { color: buildAxisColor() }
+      axisLabel: { color: axisColor() }
     },
     yAxis: {
       type: "value",
@@ -318,19 +410,19 @@ function buildScoreChart(data) {
       max: 100,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: buildAxisColor() },
-      splitLine: { lineStyle: { color: buildSplitLineColor() } }
+      axisLabel: { color: axisColor() },
+      splitLine: { lineStyle: { color: splitLineColor() } }
     },
     series: [
       {
         type: "line",
         smooth: true,
         symbol: "circle",
-        symbolSize: 7,
-        lineStyle: { width: 3, color: "#8b5cf6" },
-        itemStyle: { color: "#8b5cf6" },
-        areaStyle: { color: "rgba(139, 92, 246, 0.12)" },
-        data: data.map((item) => Number(item.avg_score || 0))
+        symbolSize: 8,
+        lineStyle: { width: 3, color: palette[4] },
+        itemStyle: { color: palette[4] },
+        areaStyle: { color: "rgba(124, 92, 255, 0.12)" },
+        data: rows.map((item) => Number(item.avg_score || 0))
       }
     ]
   });
@@ -338,8 +430,8 @@ function buildScoreChart(data) {
   return chart;
 }
 
-function buildDocTypeChart(distribution) {
-  if (!docTypeChartRef.value || !distribution?.length) {
+function buildDocTypeChart(rows) {
+  if (!docTypeChartRef.value || !rows?.length) {
     docTypeChart?.dispose();
     docTypeChart = null;
     return null;
@@ -349,33 +441,130 @@ function buildDocTypeChart(distribution) {
   const chart = echarts.init(docTypeChartRef.value);
 
   chart.setOption({
-    animationDuration: 400,
+    animationDuration: 360,
+    color: palette,
     tooltip: {
       trigger: "item",
       formatter: "{b}<br/>{c} 份 · {d}%",
-      backgroundColor: themeStore.isDark ? "#0f172a" : "#ffffff",
-      borderColor: themeStore.isDark ? "#334155" : "#dbe5f0",
-      textStyle: { color: themeStore.isDark ? "#e2e8f0" : "#0f172a" }
+      ...baseTooltip()
     },
     legend: {
       bottom: 0,
       left: "center",
       itemWidth: 10,
       itemHeight: 10,
-      textStyle: { color: buildAxisColor() }
+      textStyle: { color: axisColor() }
     },
     series: [
       {
         type: "pie",
         radius: ["52%", "76%"],
-        center: ["50%", "46%"],
-        avoidLabelOverlap: true,
+        center: ["50%", "45%"],
         label: { show: false },
         labelLine: { show: false },
-        data: distribution.map((item) => ({
+        data: rows.map((item) => ({
           name: item.type || "unknown",
           value: Number(item.count || 0)
         }))
+      }
+    ]
+  });
+
+  return chart;
+}
+
+function buildRecentDocsChart(items) {
+  if (!recentDocsChartRef.value || !items?.length) {
+    recentDocsChart?.dispose();
+    recentDocsChart = null;
+    return null;
+  }
+
+  recentDocsChart?.dispose();
+  const chart = echarts.init(recentDocsChartRef.value);
+  const labels = items.map((item) => truncateLabel(item.name, 14)).reverse();
+  const values = items.map((item) => Number(item.sizeBytes || 0) / 1024).reverse();
+
+  chart.setOption({
+    animationDuration: 360,
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params) => `${params[0].name}<br/>${params[0].value.toFixed(1)} KB`,
+      ...baseTooltip()
+    },
+    grid: { left: 20, right: 20, top: 14, bottom: 14, containLabel: true },
+    xAxis: {
+      type: "value",
+      axisLabel: { color: axisColor(), formatter: (value) => `${value} KB` },
+      splitLine: { lineStyle: { color: splitLineColor() } }
+    },
+    yAxis: {
+      type: "category",
+      data: labels,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: axisColor() }
+    },
+    series: [
+      {
+        type: "bar",
+        barWidth: 18,
+        itemStyle: {
+          color: palette[1],
+          borderRadius: [0, 10, 10, 0]
+        },
+        data: values
+      }
+    ]
+  });
+
+  return chart;
+}
+
+function buildRecentSessionsChart(items) {
+  if (!recentSessionsChartRef.value || !items?.length) {
+    recentSessionsChart?.dispose();
+    recentSessionsChart = null;
+    return null;
+  }
+
+  recentSessionsChart?.dispose();
+  const chart = echarts.init(recentSessionsChartRef.value);
+  const labels = items.map((item) => truncateLabel(item.title, 14)).reverse();
+  const values = items.map((item) => Number(item.messageCount || 0)).reverse();
+
+  chart.setOption({
+    animationDuration: 360,
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params) => `${params[0].name}<br/>${params[0].value} 条消息`,
+      ...baseTooltip()
+    },
+    grid: { left: 20, right: 20, top: 14, bottom: 14, containLabel: true },
+    xAxis: {
+      type: "value",
+      minInterval: 1,
+      axisLabel: { color: axisColor() },
+      splitLine: { lineStyle: { color: splitLineColor() } }
+    },
+    yAxis: {
+      type: "category",
+      data: labels,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: axisColor() }
+    },
+    series: [
+      {
+        type: "bar",
+        barWidth: 18,
+        itemStyle: {
+          color: palette[3],
+          borderRadius: [0, 10, 10, 0]
+        },
+        data: values
       }
     ]
   });
@@ -388,15 +577,32 @@ function rebuildCharts() {
     return;
   }
 
+  for (const card of kpiCards.value) {
+    buildMetricChart(card);
+  }
   activityChart = buildActivityChart(analytics.value.dailyActivity || []);
   scoreChart = buildScoreChart(analytics.value.scoreTrend || []);
   docTypeChart = buildDocTypeChart(analytics.value.docTypeDistribution || []);
+  recentDocsChart = buildRecentDocsChart(recentDocuments.value);
+  recentSessionsChart = buildRecentSessionsChart(recentSessions.value);
+}
+
+function disposeMetricCharts() {
+  for (const chart of metricCharts.values()) {
+    chart.dispose();
+  }
+  metricCharts.clear();
 }
 
 function resizeCharts() {
+  for (const chart of metricCharts.values()) {
+    chart.resize();
+  }
   activityChart?.resize();
   scoreChart?.resize();
   docTypeChart?.resize();
+  recentDocsChart?.resize();
+  recentSessionsChart?.resize();
 }
 
 async function loadData() {
@@ -405,17 +611,34 @@ async function loadData() {
     analytics.value = await fetchAnalytics();
     await nextTick();
     rebuildCharts();
-  } catch {
+  } catch (error) {
+    console.error("Failed to load analytics:", error);
     analytics.value = null;
+    disposeMetricCharts();
     activityChart?.dispose();
     scoreChart?.dispose();
     docTypeChart?.dispose();
+    recentDocsChart?.dispose();
+    recentSessionsChart?.dispose();
     activityChart = null;
     scoreChart = null;
     docTypeChart = null;
+    recentDocsChart = null;
+    recentSessionsChart = null;
   } finally {
     loading.value = false;
   }
+}
+
+function truncateLabel(value, maxLength) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "未命名";
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
 }
 
 function formatSize(bytes) {
@@ -427,21 +650,6 @@ function formatSize(bytes) {
     return `${(size / 1024).toFixed(1)} KB`;
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(input) {
-  if (!input) {
-    return "--";
-  }
-
-  const value = new Date(input);
-  if (Number.isNaN(value.getTime())) {
-    return "--";
-  }
-
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${month}/${day}`;
 }
 
 watch(
@@ -458,58 +666,77 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("resize", resizeCharts);
+  disposeMetricCharts();
   activityChart?.dispose();
   scoreChart?.dispose();
   docTypeChart?.dispose();
+  recentDocsChart?.dispose();
+  recentSessionsChart?.dispose();
 });
 </script>
 
 <style scoped>
 .analytics-dashboard {
   width: 100%;
-  max-width: 1320px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 4px 0 32px;
+  padding: 8px 0 28px;
 }
 
 .analytics-hero {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 28px 30px;
-  margin-bottom: 20px;
+  gap: 16px;
+  padding: 18px 22px;
+  margin-bottom: 16px;
   border: 1px solid var(--border-primary);
-  border-radius: 28px;
+  border-radius: 24px;
   background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 32%),
-    linear-gradient(135deg, var(--bg-surface), var(--bg-surface-alt));
-  box-shadow: var(--shadow-card);
+    radial-gradient(circle at top right, rgba(0, 95, 184, 0.15), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(238, 246, 255, 0.92));
+  box-shadow: 0 18px 40px rgba(0, 95, 184, 0.08);
+}
+
+.analytics-hero__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .analytics-hero__eyebrow,
-.panel__eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
+.dashboard-card__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
 
 .analytics-hero__title {
   margin: 0;
-  max-width: 760px;
-  font-size: 32px;
-  line-height: 1.2;
+  font-size: 28px;
+  line-height: 1.1;
   color: var(--text-primary);
 }
 
-.analytics-hero__subtitle {
-  margin: 14px 0 0;
-  max-width: 760px;
-  font-size: 15px;
-  line-height: 1.7;
+.analytics-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.analytics-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 95, 184, 0.12);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .analytics-refresh {
@@ -519,15 +746,15 @@ onUnmounted(() => {
   min-width: 108px;
   font-weight: 700;
   color: var(--text-inverse);
-  background: var(--brand-blue);
-  box-shadow: var(--shadow-card);
+  background: linear-gradient(135deg, #005fb8, #0c78da);
+  box-shadow: 0 10px 24px rgba(0, 95, 184, 0.22);
   cursor: pointer;
-  transition: transform 0.16s ease, background 0.16s ease;
+  transition: transform 0.16s ease, filter 0.16s ease;
 }
 
 .analytics-refresh:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: var(--brand-blue-hover);
+  filter: brightness(1.03);
 }
 
 .analytics-refresh:disabled {
@@ -542,116 +769,55 @@ onUnmounted(() => {
 }
 
 .analytics-loading__card {
-  height: 164px;
+  height: 184px;
   border-radius: 24px;
   background: linear-gradient(90deg, var(--bg-surface), var(--bg-surface-alt), var(--bg-surface));
   background-size: 200% 100%;
   animation: analytics-loading 1.2s linear infinite;
 }
 
-.analytics-overview {
+.analytics-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
 
-.overview-card {
-  padding: 22px 22px 20px;
-  border-radius: 24px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-card);
-}
-
-.overview-card--blue {
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.08), var(--bg-surface));
-}
-
-.overview-card--emerald {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), var(--bg-surface));
-}
-
-.overview-card--amber {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.08), var(--bg-surface));
-}
-
-.overview-card--slate {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.05), var(--bg-surface));
-}
-
-.overview-card__label {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.overview-card__value {
-  display: block;
-  font-size: 36px;
-  line-height: 1;
-  color: var(--text-primary);
-}
-
-.overview-card__hint {
-  margin: 12px 0 0;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.analytics-summary-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.summary-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-card);
-}
-
-.summary-chip__label {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.summary-chip__value {
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
 .analytics-grid {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
-.analytics-grid--top {
-  grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.95fr);
-  margin-bottom: 18px;
+.analytics-grid--main {
+  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 1fr);
+  margin-bottom: 16px;
 }
 
-.analytics-grid--bottom {
-  grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1fr) minmax(0, 1fr);
+.analytics-grid--detail {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.panel {
+.dashboard-card {
   min-width: 0;
-  padding: 24px;
-  border-radius: 26px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-card);
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(220, 232, 245, 0.95);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 18px 32px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(10px);
 }
 
-.panel__header {
+.dashboard-card--metric {
+  padding-top: 18px;
+}
+
+.dashboard-card--wide {
+  padding-bottom: 18px;
+}
+
+.dashboard-card__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -659,20 +825,46 @@ onUnmounted(() => {
   margin-bottom: 18px;
 }
 
-.panel__title {
-  margin: 0;
+.dashboard-card__header--tight {
+  margin-bottom: 6px;
+}
+
+.dashboard-card__title {
+  margin: 6px 0 0;
   font-size: 20px;
-  line-height: 1.25;
+  line-height: 1.22;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
-.panel__meta,
-.panel__legend {
+.dashboard-card__title--small {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.dashboard-card__badge,
+.dashboard-card__legend {
   font-size: 13px;
   color: var(--text-secondary);
 }
 
-.panel__legend {
+.dashboard-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: #6d28d9;
+  background: rgba(124, 92, 255, 0.10);
+  font-weight: 700;
+}
+
+.dashboard-card__badge--muted {
+  color: var(--text-secondary);
+  background: rgba(239, 246, 255, 0.96);
+}
+
+.dashboard-card__legend {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
@@ -685,94 +877,42 @@ onUnmounted(() => {
   border-radius: 999px;
 }
 
-.legend-dot--user {
-  background: #2563eb;
+.legend-dot--blue {
+  background: #005fb8;
 }
 
-.legend-dot--assistant {
-  background: #22c55e;
-}
-
-.panel__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #7c3aed;
-  background: rgba(139, 92, 246, 0.12);
+.legend-dot--teal {
+  background: #1bb6a8;
 }
 
 .chart-box {
   width: 100%;
 }
 
-.chart-box--activity,
-.chart-box--score {
-  height: 340px;
+.chart-box--metric {
+  height: 182px;
 }
 
-.chart-box--donut {
-  height: 310px;
+.chart-box--line {
+  height: 326px;
 }
 
-.panel-empty {
+.chart-box--donut,
+.chart-box--bar {
+  height: 304px;
+}
+
+.dashboard-card__empty {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 220px;
   padding: 20px;
-  border-radius: 20px;
-  background: var(--bg-surface-alt);
+  border-radius: 18px;
+  background: rgba(238, 246, 255, 0.82);
   color: var(--text-secondary);
   text-align: center;
   line-height: 1.7;
-}
-
-.entity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.entity-list__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 18px;
-  background: var(--bg-surface-alt);
-}
-
-.entity-list__body {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.entity-list__title {
-  font-size: 14px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.entity-list__desc,
-.entity-list__time {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.entity-list__time {
-  flex-shrink: 0;
 }
 
 .analytics-empty {
@@ -806,13 +946,13 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 1180px) {
-  .analytics-overview {
+@media (max-width: 1260px) {
+  .analytics-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .analytics-grid--top,
-  .analytics-grid--bottom {
+  .analytics-grid--main,
+  .analytics-grid--detail {
     grid-template-columns: 1fr;
   }
 }
@@ -820,15 +960,19 @@ onUnmounted(() => {
 @media (max-width: 860px) {
   .analytics-hero {
     flex-direction: column;
-    padding: 22px;
+    align-items: stretch;
+  }
+
+  .analytics-hero__actions {
+    justify-content: space-between;
   }
 
   .analytics-hero__title {
-    font-size: 26px;
+    font-size: 24px;
   }
 
   .analytics-loading,
-  .analytics-overview {
+  .analytics-kpi-grid {
     grid-template-columns: 1fr;
   }
 }
