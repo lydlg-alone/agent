@@ -270,7 +270,7 @@ defineExpose({
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #60a5fa;
+  background: var(--brand-blue);
   animation: pulse 1.1s infinite ease-in-out;
 }
 

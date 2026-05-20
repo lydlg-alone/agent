@@ -127,13 +127,13 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   margin: 0;
   font-size: 30px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .page-header p {
   margin: 8px 0 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .page-actions {
@@ -153,24 +153,24 @@ defineEmits(["update:search", "import", "clear", "delete"]);
 
 .primary-button {
   padding: 10px 20px;
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--brand-blue);
+  color: var(--text-inverse);
   box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
 }
 
 .primary-button:hover {
-  background: #1d4ed8;
+  background: var(--brand-blue-hover);
 }
 
 .secondary-button {
   padding: 10px 20px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  color: #4b5563;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
 }
 
 .secondary-button:hover {
-  background: #f9fafb;
+  background: var(--bg-surface-hover);
 }
 
 .stats-grid {
@@ -181,8 +181,8 @@ defineEmits(["update:search", "import", "clear", "delete"]);
 }
 
 .surface-card {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(208, 223, 243, 0.9);
+  background: var(--bg-overlay-strong);
+  border: 1px solid var(--border-primary);
   backdrop-filter: blur(10px);
 }
 
@@ -194,7 +194,7 @@ defineEmits(["update:search", "import", "clear", "delete"]);
 .stats-card p {
   margin: 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .stats-card strong {
@@ -202,7 +202,7 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   margin-top: 12px;
   font-size: 30px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .stats-card__truncate {
@@ -232,38 +232,39 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: #c8d6ec;
 }
 
 .search-icon {
   width: 18px;
   height: 18px;
   fill: currentColor;
+  filter: drop-shadow(0 0 8px rgba(146, 183, 255, 0.14));
 }
 
 .search-input {
   width: 100%;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-input);
   border-radius: 14px;
-  background: #f9fafb;
+  background: var(--bg-input);
   padding: 12px 16px 12px 44px;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--text-primary);
   outline: none;
 }
 
 .toolbar-summary {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .kb-empty {
   padding: 56px;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--border-primary);
   border-radius: 24px;
   text-align: center;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .kb-empty__icon {
@@ -274,8 +275,9 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--brand-blue-light);
+  color: #eef5ff;
+  box-shadow: 0 0 24px rgba(146, 183, 255, 0.14);
 }
 
 .kb-empty__icon svg {
@@ -287,7 +289,7 @@ defineEmits(["update:search", "import", "clear", "delete"]);
 .kb-empty h3 {
   margin: 0;
   font-size: 18px;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .kb-empty p {
@@ -321,16 +323,17 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   align-items: center;
   justify-content: center;
   border-radius: 18px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--brand-blue-light);
+  color: #eef5ff;
   font-size: 13px;
   font-weight: 700;
+  box-shadow: 0 0 18px rgba(146, 183, 255, 0.12);
 }
 
 .document-delete {
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 13px;
   cursor: pointer;
 }
@@ -343,7 +346,7 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   word-break: break-all;
 }
 
@@ -351,7 +354,7 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   margin: 8px 0 0;
   font-size: 14px;
   line-height: 1.7;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .document-card__meta {
@@ -362,7 +365,7 @@ defineEmits(["update:search", "import", "clear", "delete"]);
   gap: 12px;
   flex-wrap: wrap;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 button:disabled {

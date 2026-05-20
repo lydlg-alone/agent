@@ -1,157 +1,160 @@
 /* ============================================================
-   暗色模式 CSS 变量体系
-   通过 [data-theme="dark"] 切换，三态：light / dark / system
+   Global Theme Variables
+   Gemini-like starfield chat theme with soft charcoal surfaces.
    ============================================================ */
 
 :root {
-  /* ---- 基础 ---- */
-  --color-scheme: light;
-  color-scheme: light;
+  --color-scheme: dark;
+  color-scheme: dark;
   font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
   color: var(--text-primary);
 
-  /* ---- 背景 ---- */
-  --bg-app: #edf4ff;
-  --bg-surface: #ffffff;
-  --bg-surface-hover: #f8fafc;
-  --bg-surface-alt: #f1f5f9;
-  --bg-overlay: rgba(255, 255, 255, 0.88);
+  /* ---- Background ---- */
+  --bg-app: #171c24;
+  --bg-surface: rgba(36, 43, 56, 0.78);
+  --bg-surface-hover: rgba(46, 54, 69, 0.9);
+  --bg-surface-alt: rgba(41, 49, 63, 0.88);
+  --bg-overlay: rgba(28, 34, 44, 0.58);
+  --bg-overlay-strong: rgba(32, 38, 50, 0.76);
+  --bg-overlay-soft: rgba(28, 34, 44, 0.34);
 
-  /* ---- 文字 ---- */
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  /* ---- Text ---- */
+  --text-primary: #f3f7ff;
+  --text-secondary: #c4d1e3;
+  --text-tertiary: #97a6bb;
   --text-inverse: #ffffff;
 
-  /* ---- 导航 ---- */
-  --bg-nav: #004A8F;
-  --bg-nav-hover: rgba(255, 255, 255, 0.1);
-  --text-nav: #bfdbfe;
-  --text-nav-active: #ffffff;
+  /* ---- Navigation ---- */
+  --bg-nav: rgba(20, 25, 34, 0.78);
+  --bg-nav-hover: rgba(255, 255, 255, 0.08);
+  --text-nav: #9eb3cc;
+  --text-nav-active: #f8fbff;
 
-  /* ---- 聊天气泡 ---- */
-  --bg-bubble-user: linear-gradient(135deg, #005fb8, #0c78da);
-  --bg-bubble-assistant: #ffffff;
-  --text-bubble-user: #ffffff;
-  --text-bubble-assistant: #374151;
-  --border-bubble-assistant: #dbe5f0;
+  /* ---- Chat bubbles ---- */
+  --bg-bubble-user: linear-gradient(135deg, rgba(80, 112, 255, 0.94), rgba(64, 152, 255, 0.92));
+  --bg-bubble-assistant: rgba(39, 47, 61, 0.82);
+  --text-bubble-user: #f8fbff;
+  --text-bubble-assistant: #e6edf7;
+  --border-bubble-assistant: rgba(77, 104, 146, 0.54);
 
-  /* ---- 输入区 ---- */
-  --bg-input: #f9fafb;
-  --bg-input-focus: #ffffff;
-  --border-input: #e5e7eb;
-  --border-input-focus: #3b82f6;
+  /* ---- Inputs ---- */
+  --bg-input: rgba(34, 42, 55, 0.9);
+  --bg-input-focus: rgba(40, 49, 63, 0.96);
+  --border-input: rgba(62, 87, 126, 0.7);
+  --border-input-focus: #5f8cff;
 
-  /* ---- 边框 ---- */
-  --border-primary: #dbe5f0;
-  --border-subtle: #e5e7eb;
-  --border-light: #f1f5f9;
+  /* ---- Borders ---- */
+  --border-primary: rgba(61, 92, 138, 0.68);
+  --border-subtle: rgba(44, 62, 90, 0.72);
+  --border-light: rgba(53, 74, 106, 0.52);
 
-  /* ---- 阴影 ---- */
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08);
-  --shadow-elevated: 0 4px 16px rgba(15, 23, 42, 0.1);
+  /* ---- Shadows ---- */
+  --shadow-card: 0 18px 36px rgba(0, 0, 0, 0.22);
+  --shadow-elevated: 0 28px 56px rgba(0, 0, 0, 0.28);
 
-  /* ---- 品牌色 ---- */
-  --brand-blue: #005fb8;
-  --brand-blue-hover: #004a8f;
-  --brand-blue-light: #eff6ff;
-  --brand-blue-border: #dbeafe;
+  /* ---- Brand ---- */
+  --brand-blue: #7ca8ff;
+  --brand-blue-hover: #92b7ff;
+  --brand-blue-light: rgba(90, 117, 168, 0.24);
+  --brand-blue-border: rgba(71, 111, 177, 0.78);
 
-  /* ---- 功能色 ---- */
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
-  --color-info: #2563eb;
+  /* ---- Status ---- */
+  --color-success: #39d39b;
+  --color-warning: #f4a844;
+  --color-danger: #ff6a7d;
+  --color-info: #8eb6ff;
+  --dot-online: #35d399;
+  --dot-offline: #68788f;
 
-  /* ---- 状态指示 ---- */
-  --dot-online: #22c55e;
-  --dot-offline: #9ca3af;
+  /* ---- Code ---- */
+  --bg-code: rgba(11, 16, 24, 0.98);
+  --text-code: #d9e4f3;
+  --bg-inline-code: rgba(116, 139, 177, 0.18);
+  --bg-inline-code-user: rgba(255, 255, 255, 0.16);
 
-  /* ---- 代码块 ---- */
-  --bg-code: #0f172a;
-  --text-code: #e2e8f0;
-  --bg-inline-code: rgba(15, 23, 42, 0.08);
-  --bg-inline-code-user: rgba(255, 255, 255, 0.18);
+  /* ---- Citation ---- */
+  --bg-citation: rgba(24, 31, 42, 0.84);
+  --border-citation: rgba(67, 94, 134, 0.68);
 
-  /* ---- 引用/来源 ---- */
-  --bg-citation: #f8fafc;
-  --border-citation: #e2e8f0;
-
-  /* ---- KaTeX 公式 ---- */
+  /* ---- KaTeX ---- */
   --katex-color: inherit;
   --katex-bg: transparent;
 
-  /* ---- 头像 ---- */
-  --bg-avatar-assistant: #dbeafe;
-  --border-avatar-assistant: #bfdbfe;
-  --text-avatar-assistant: #2563eb;
-  --bg-avatar-user: #0f172a;
+  /* ---- Avatar ---- */
+  --bg-avatar-assistant: rgba(49, 61, 80, 0.98);
+  --border-avatar-assistant: rgba(86, 112, 154, 0.74);
+  --text-avatar-assistant: #c7d8ff;
+  --bg-avatar-user: rgba(89, 118, 255, 0.94);
   --text-avatar-user: #ffffff;
 }
 
-/* ---- 暗色主题覆盖 ---- */
 [data-theme="dark"] {
   --color-scheme: dark;
   color-scheme: dark;
 
-  --bg-app: #0f172a;
-  --bg-surface: #1e293b;
-  --bg-surface-hover: #334155;
-  --bg-surface-alt: #1a2332;
-  --bg-overlay: rgba(15, 23, 42, 0.92);
+  --bg-app: #161b23;
+  --bg-surface: rgba(34, 41, 54, 0.8);
+  --bg-surface-hover: rgba(44, 52, 66, 0.92);
+  --bg-surface-alt: rgba(38, 46, 60, 0.9);
+  --bg-overlay: rgba(26, 31, 41, 0.6);
+  --bg-overlay-strong: rgba(30, 36, 47, 0.8);
+  --bg-overlay-soft: rgba(24, 29, 38, 0.36);
 
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-inverse: #0f172a;
+  --text-primary: #f4f8ff;
+  --text-secondary: #c5d2e3;
+  --text-tertiary: #99a9bd;
+  --text-inverse: #ffffff;
 
-  --bg-nav: #0b1120;
-  --bg-nav-hover: rgba(255, 255, 255, 0.08);
-  --text-nav: #64748b;
-  --text-nav-active: #93c5fd;
+  --bg-nav: rgba(18, 22, 30, 0.84);
+  --bg-nav-hover: rgba(255, 255, 255, 0.07);
+  --text-nav: #9cafcb;
+  --text-nav-active: #f8fbff;
 
-  --bg-bubble-user: linear-gradient(135deg, #2563eb, #3b82f6);
-  --bg-bubble-assistant: #1e293b;
-  --text-bubble-user: #ffffff;
-  --text-bubble-assistant: #e2e8f0;
-  --border-bubble-assistant: #334155;
+  --bg-bubble-user: linear-gradient(135deg, rgba(84, 105, 255, 0.96), rgba(70, 156, 255, 0.94));
+  --bg-bubble-assistant: rgba(38, 46, 59, 0.86);
+  --text-bubble-user: #f7fbff;
+  --text-bubble-assistant: #e8eff8;
+  --border-bubble-assistant: rgba(74, 100, 142, 0.62);
 
-  --bg-input: #1e293b;
-  --bg-input-focus: #1e293b;
-  --border-input: #334155;
-  --border-input-focus: #3b82f6;
+  --bg-input: rgba(34, 42, 55, 0.92);
+  --bg-input-focus: rgba(42, 50, 64, 0.98);
+  --border-input: rgba(60, 84, 122, 0.76);
+  --border-input-focus: #6b96ff;
 
-  --border-primary: #334155;
-  --border-subtle: #1e293b;
-  --border-light: #1a2332;
+  --border-primary: rgba(65, 96, 144, 0.76);
+  --border-subtle: rgba(45, 63, 92, 0.78);
+  --border-light: rgba(56, 78, 112, 0.58);
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 18px 38px rgba(0, 0, 0, 0.24);
+  --shadow-elevated: 0 30px 64px rgba(0, 0, 0, 0.3);
 
-  --brand-blue: #3b82f6;
-  --brand-blue-hover: #2563eb;
-  --brand-blue-light: #1e3a5f;
-  --brand-blue-border: #1e40af;
+  --brand-blue: #8cb0ff;
+  --brand-blue-hover: #9ec0ff;
+  --brand-blue-light: rgba(92, 117, 171, 0.24);
+  --brand-blue-border: rgba(75, 113, 179, 0.82);
 
-  --dot-online: #22c55e;
-  --dot-offline: #64748b;
+  --color-success: #34d399;
+  --color-warning: #f59e0b;
+  --color-danger: #fb7185;
+  --color-info: #9abcff;
+  --dot-online: #34d399;
+  --dot-offline: #68788f;
 
-  --bg-code: #0b1120;
-  --text-code: #cbd5e1;
-  --bg-inline-code: rgba(255, 255, 255, 0.1);
-  --bg-inline-code-user: rgba(255, 255, 255, 0.2);
+  --bg-code: rgba(9, 13, 20, 0.98);
+  --text-code: #dae6f7;
+  --bg-inline-code: rgba(132, 155, 194, 0.18);
+  --bg-inline-code-user: rgba(255, 255, 255, 0.18);
 
-  --bg-citation: #1a2332;
-  --border-citation: #334155;
+  --bg-citation: rgba(21, 28, 39, 0.88);
+  --border-citation: rgba(68, 96, 137, 0.72);
 
-  --bg-avatar-assistant: #1e3a5f;
-  --border-avatar-assistant: #1e40af;
-  --text-avatar-assistant: #93c5fd;
-  --bg-avatar-user: #3b82f6;
+  --bg-avatar-assistant: rgba(47, 59, 78, 0.98);
+  --border-avatar-assistant: rgba(81, 109, 151, 0.8);
+  --text-avatar-assistant: #d4e1ff;
+  --bg-avatar-user: rgba(88, 116, 255, 0.96);
   --text-avatar-user: #ffffff;
 }
 
-/* ---- 全局重置 ---- */
 * {
   box-sizing: border-box;
 }
@@ -164,8 +167,20 @@ body,
 }
 
 body {
-  background: var(--bg-app);
+  background:
+    radial-gradient(circle at 18% 14%, rgba(125, 141, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 76% 12%, rgba(111, 163, 255, 0.13), transparent 26%),
+    radial-gradient(circle at 62% 62%, rgba(255, 255, 255, 0.06), transparent 18%),
+    linear-gradient(180deg, #1a2029 0%, #161b23 52%, #121720 100%);
   transition: background 0.3s ease, color 0.3s ease;
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(123, 140, 255, 0.17), transparent 24%),
+    radial-gradient(circle at 76% 12%, rgba(108, 160, 255, 0.14), transparent 26%),
+    radial-gradient(circle at 64% 68%, rgba(255, 255, 255, 0.055), transparent 18%),
+    linear-gradient(180deg, #191f28 0%, #161b23 52%, #11161f 100%);
 }
 
 button,
@@ -179,59 +194,64 @@ a {
   text-decoration: none;
 }
 
-/* ---- Element Plus 暗色补充微调 ---- */
 [data-theme="dark"] .el-dialog {
   --el-dialog-bg-color: var(--bg-surface);
 }
+
 [data-theme="dark"] .el-message {
   --el-message-bg-color: var(--bg-surface);
 }
 
-/* ---- highlight.js 暗色覆盖 ---- */
-[data-theme="dark"] .hljs {
+.hljs {
   background: var(--bg-code);
-  color: #c9d1d9;
+  color: #d9e4f3;
 }
-[data-theme="dark"] .hljs-keyword,
-[data-theme="dark"] .hljs-selector-tag,
-[data-theme="dark"] .hljs-title,
-[data-theme="dark"] .hljs-section,
-[data-theme="dark"] .hljs-doctag,
-[data-theme="dark"] .hljs-name,
-[data-theme="dark"] .hljs-strong {
-  color: #ff7b72;
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-title,
+.hljs-section,
+.hljs-doctag,
+.hljs-name,
+.hljs-strong {
+  color: #ff8ea3;
 }
-[data-theme="dark"] .hljs-comment {
-  color: #8b949e;
+
+.hljs-comment {
+  color: #7f8da1;
 }
-[data-theme="dark"] .hljs-string,
-[data-theme="dark"] .hljs-attr,
-[data-theme="dark"] .hljs-built_in,
-[data-theme="dark"] .hljs-type,
-[data-theme="dark"] .hljs-selector-attr,
-[data-theme="dark"] .hljs-selector-pseudo,
-[data-theme="dark"] .hljs-addition,
-[data-theme="dark"] .hljs-template-tag,
-[data-theme="dark"] .hljs-template-variable {
-  color: #79c0ff;
+
+.hljs-string,
+.hljs-attr,
+.hljs-built_in,
+.hljs-type,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-addition,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: #93c5fd;
 }
-[data-theme="dark"] .hljs-number,
-[data-theme="dark"] .hljs-literal,
-[data-theme="dark"] .hljs-variable,
-[data-theme="dark"] .hljs-deletion {
-  color: #ffa657;
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-deletion {
+  color: #f9b46e;
 }
-[data-theme="dark"] .hljs-meta {
-  color: #d2a8ff;
+
+.hljs-meta {
+  color: #c4b5fd;
 }
-[data-theme="dark"] .hljs-emphasis {
+
+.hljs-emphasis {
   font-style: italic;
 }
 
-/* ---- KaTeX 暗色适配 ---- */
-[data-theme="dark"] .katex {
-  color: #e2e8f0;
+.katex {
+  color: var(--katex-color);
 }
-[data-theme="dark"] .chat-bubble-user .katex {
+
+.chat-bubble-user .katex {
   color: #ffffff;
 }

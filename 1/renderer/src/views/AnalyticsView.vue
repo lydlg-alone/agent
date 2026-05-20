@@ -693,9 +693,10 @@ onUnmounted(() => {
   border: 1px solid var(--border-primary);
   border-radius: 24px;
   background:
-    radial-gradient(circle at top right, rgba(0, 95, 184, 0.15), transparent 30%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(238, 246, 255, 0.92));
-  box-shadow: 0 18px 40px rgba(0, 95, 184, 0.08);
+    radial-gradient(circle at top right, rgba(0, 95, 184, 0.14), transparent 30%),
+    linear-gradient(135deg, var(--bg-overlay-strong), rgba(230, 243, 255, 0.46));
+  box-shadow: var(--shadow-elevated);
+  backdrop-filter: blur(14px);
 }
 
 .analytics-hero__titles {
@@ -732,8 +733,8 @@ onUnmounted(() => {
   align-items: center;
   padding: 10px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 95, 184, 0.12);
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--brand-blue-border);
+  background: var(--bg-surface);
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
@@ -746,8 +747,8 @@ onUnmounted(() => {
   min-width: 108px;
   font-weight: 700;
   color: var(--text-inverse);
-  background: linear-gradient(135deg, #005fb8, #0c78da);
-  box-shadow: 0 10px 24px rgba(0, 95, 184, 0.22);
+  background: linear-gradient(135deg, rgba(92, 112, 255, 0.96), rgba(81, 153, 255, 0.94));
+  box-shadow: 0 10px 24px rgba(56, 84, 196, 0.28);
   cursor: pointer;
   transition: transform 0.16s ease, filter 0.16s ease;
 }
@@ -801,11 +802,11 @@ onUnmounted(() => {
   min-width: 0;
   padding: 20px;
   border-radius: 24px;
-  border: 1px solid rgba(220, 232, 245, 0.95);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-overlay-strong);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.72) inset,
-    0 18px 32px rgba(15, 23, 42, 0.06);
+    0 1px 0 rgba(255, 255, 255, 0.34) inset,
+    var(--shadow-card);
   backdrop-filter: blur(10px);
 }
 
@@ -854,14 +855,14 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 999px;
   padding: 10px 14px;
-  color: #6d28d9;
-  background: rgba(124, 92, 255, 0.10);
+  color: #b6c8ff;
+  background: rgba(95, 110, 183, 0.18);
   font-weight: 700;
 }
 
 .dashboard-card__badge--muted {
   color: var(--text-secondary);
-  background: rgba(239, 246, 255, 0.96);
+  background: var(--bg-surface-alt);
 }
 
 .dashboard-card__legend {
@@ -878,11 +879,11 @@ onUnmounted(() => {
 }
 
 .legend-dot--blue {
-  background: #005fb8;
+  background: #6f93ff;
 }
 
 .legend-dot--teal {
-  background: #1bb6a8;
+  background: #60d4c0;
 }
 
 .chart-box {
@@ -909,7 +910,7 @@ onUnmounted(() => {
   min-height: 220px;
   padding: 20px;
   border-radius: 18px;
-  background: rgba(238, 246, 255, 0.82);
+  background: var(--bg-surface-alt);
   color: var(--text-secondary);
   text-align: center;
   line-height: 1.7;
@@ -919,9 +920,10 @@ onUnmounted(() => {
   padding: 72px 24px;
   border: 1px solid var(--border-primary);
   border-radius: 28px;
-  background: var(--bg-surface);
+  background: var(--bg-overlay-strong);
   text-align: center;
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
 }
 
 .analytics-empty__title {

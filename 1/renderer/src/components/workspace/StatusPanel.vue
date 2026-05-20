@@ -34,27 +34,27 @@ defineProps({
 .status-panel {
   display: none;
   flex-direction: column;
-  border-left: 1px solid #dbeafe;
-  background: rgba(255, 255, 255, 0.65);
+  border-left: 1px solid var(--brand-blue-border);
+  background: var(--bg-overlay);
   backdrop-filter: blur(10px);
 }
 
 .status-panel__header {
   padding: 24px;
-  border-bottom: 1px solid #dbeafe;
+  border-bottom: 1px solid var(--brand-blue-border);
 }
 
 .status-panel__header h3 {
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .status-panel__header p {
   margin: 4px 0 0;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .status-panel__body {
@@ -67,8 +67,8 @@ defineProps({
 }
 
 .surface-card {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(208, 223, 243, 0.9);
+  background: var(--bg-overlay-strong);
+  border: 1px solid var(--border-primary);
   backdrop-filter: blur(10px);
 }
 
@@ -88,7 +88,7 @@ defineProps({
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .status-card__icon {
@@ -98,39 +98,41 @@ defineProps({
   align-items: center;
   justify-content: center;
   border-radius: 12px;
+  box-shadow: 0 0 18px rgba(146, 183, 255, 0.12);
 }
 
 .status-card__icon svg {
   width: 20px;
   height: 20px;
   fill: currentColor;
+  filter: drop-shadow(0 0 8px rgba(146, 183, 255, 0.14));
 }
 
 .status-card__icon--blue {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--brand-blue-light);
+  color: #eef5ff;
 }
 
 .status-card__icon--green {
-  background: #ecfdf5;
+  background: rgba(236, 253, 245, 0.68);
   color: #059669;
 }
 
 .status-card__icon--orange {
-  background: #fff7ed;
+  background: rgba(255, 247, 237, 0.74);
   color: #ea580c;
 }
 
 .status-card__icon--slate {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--bg-surface-alt);
+  color: var(--text-secondary);
 }
 
 .status-card p {
   margin: 0;
   font-size: 14px;
   line-height: 1.7;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -153,7 +155,7 @@ defineProps({
   .status-panel {
     display: flex;
     border-left: none;
-    border-top: 1px solid #dbeafe;
+    border-top: 1px solid var(--brand-blue-border);
   }
 }
 </style>

@@ -9,20 +9,13 @@ function readStoredMode() {
       return stored;
     }
   } catch {
-    // localStorage unavailable — fall back to system
+    // localStorage unavailable; fall back to dark
   }
-  return "system";
+  return "dark";
 }
 
 function resolveMode(mode) {
-  if (mode === "system") {
-    try {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    } catch {
-      return "light";
-    }
-  }
-  return mode;
+  return "dark";
 }
 
 export const useThemeStore = defineStore("theme", {
@@ -71,14 +64,13 @@ export const useThemeStore = defineStore("theme", {
             this.apply();
           }
         };
-        // modern browsers
         if (typeof mq.addEventListener === "function") {
           mq.addEventListener("change", listener);
         } else if (typeof mq.addListener === "function") {
           mq.addListener(listener);
         }
       } catch {
-        // matchMedia unavailable — nothing to watch
+        // matchMedia unavailable
       }
     }
   }

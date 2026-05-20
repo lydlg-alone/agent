@@ -109,9 +109,9 @@ defineExpose({
   z-index: 8;
   flex-shrink: 0;
   padding: 20px 32px 24px;
-  background: linear-gradient(180deg, rgba(245, 249, 255, 0.05) 0%, rgba(255, 255, 255, 0.94) 20%, rgba(255, 255, 255, 0.98) 100%);
-  border-top: 1px solid #dbeafe;
-  box-shadow: 0 -10px 30px rgba(148, 163, 184, 0.08);
+  background: linear-gradient(180deg, rgba(239, 248, 255, 0.04) 0%, var(--bg-overlay-strong) 22%, var(--bg-overlay-strong) 100%);
+  border-top: 1px solid var(--brand-blue-border);
+  box-shadow: 0 -10px 30px rgba(37, 87, 142, 0.08);
   backdrop-filter: blur(12px);
 }
 
@@ -124,10 +124,10 @@ defineExpose({
   display: flex;
   align-items: flex-start;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-primary);
   border-radius: 24px;
-  background: #f9fafb;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .composer-attach {
@@ -139,19 +139,20 @@ defineExpose({
   justify-content: center;
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: #cad8ee;
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .composer-attach:hover {
-  color: #3b82f6;
+  color: #f2f7ff;
 }
 
 .composer-icon {
   width: 20px;
   height: 20px;
   fill: currentColor;
+  filter: drop-shadow(0 0 8px rgba(146, 183, 255, 0.16));
 }
 
 .composer-input {
@@ -163,7 +164,7 @@ defineExpose({
   padding: 12px;
   font-size: 14px;
   line-height: 1.6;
-  color: #1f2937;
+  color: var(--text-primary);
   outline: none;
   resize: none;
 }
@@ -174,8 +175,8 @@ defineExpose({
   flex-shrink: 0;
   border: none;
   border-radius: 18px;
-  background: #005fb8;
-  color: #ffffff;
+  background: var(--brand-blue);
+  color: var(--text-inverse);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -183,7 +184,7 @@ defineExpose({
 }
 
 .send-button:hover {
-  background: #1d4ed8;
+  background: var(--brand-blue-hover);
 }
 
 .hint-row {
@@ -193,7 +194,7 @@ defineExpose({
   justify-content: space-between;
   gap: 16px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .pending-files {
@@ -205,7 +206,7 @@ defineExpose({
 
 .pending-files__label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   align-self: center;
 }
 
@@ -215,8 +216,8 @@ defineExpose({
   gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--brand-blue-light);
+  color: var(--brand-blue);
   font-size: 12px;
 }
 

@@ -1121,7 +1121,7 @@ watch(currentPage, async (page) => {
   height: 100vh;
   display: flex;
   overflow: hidden;
-  background: var(--bg-app);
+  background: transparent;
   color: var(--text-primary);
 }
 
@@ -1133,6 +1133,9 @@ watch(currentPage, async (page) => {
   gap: 40px;
   padding: 32px 0;
   background: var(--bg-nav);
+  border-right: 1px solid var(--brand-blue-border);
+  box-shadow: 0 18px 44px rgba(10, 50, 110, 0.14);
+  backdrop-filter: blur(16px);
   color: var(--text-nav);
   z-index: 10;
 }
@@ -1149,8 +1152,9 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border-radius: 18px;
   background: var(--bg-surface);
-  color: var(--bg-nav);
-  box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
+  color: #d9e7ff;
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-card);
 }
 
 .nav-button {
@@ -1162,7 +1166,7 @@ watch(currentPage, async (page) => {
   border: none;
   border-radius: 14px;
   background: transparent;
-  color: inherit;
+  color: rgba(214, 229, 255, 0.82);
   cursor: pointer;
   transition: 0.2s ease-in-out;
 }
@@ -1170,14 +1174,15 @@ watch(currentPage, async (page) => {
 .nav-button:hover,
 .nav-button--active {
   background: var(--bg-surface);
-  color: var(--brand-blue);
-  box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
+  color: #f3f8ff;
+  box-shadow: var(--shadow-card);
 }
 
 .nav-icon {
   width: 22px;
   height: 22px;
   fill: currentColor;
+  filter: drop-shadow(0 0 10px rgba(146, 183, 255, 0.18));
 }
 
 .nav-icon--brand {
@@ -1226,6 +1231,7 @@ watch(currentPage, async (page) => {
   justify-content: space-between;
   background: var(--bg-overlay);
   border-bottom: 1px solid var(--brand-blue-border);
+  box-shadow: 0 16px 30px rgba(37, 87, 142, 0.06);
   backdrop-filter: blur(10px);
 }
 
@@ -1280,19 +1286,20 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--text-tertiary);
+  color: #c4d3ea;
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .clear-button:hover {
-  color: var(--color-info);
+  color: #f3f8ff;
 }
 
 .action-icon {
   width: 18px;
   height: 18px;
   fill: currentColor;
+  filter: drop-shadow(0 0 10px rgba(146, 183, 255, 0.16));
 }
 
 .chat-layout {
@@ -1381,21 +1388,22 @@ watch(currentPage, async (page) => {
   border-radius: 18px;
   font-size: 20px;
   font-weight: 700;
+  box-shadow: 0 0 22px rgba(146, 183, 255, 0.12);
 }
 
 .market-card__icon--blue {
   background: var(--brand-blue-border);
-  color: var(--color-info);
+  color: #eef5ff;
 }
 
 .market-card__icon--orange {
-  background: #ffedd5;
-  color: #ea580c;
+  background: rgba(120, 74, 27, 0.28);
+  color: #f4b26b;
 }
 
 .market-card__icon--emerald {
-  background: #d1fae5;
-  color: #059669;
+  background: rgba(26, 94, 76, 0.28);
+  color: #64d5b0;
 }
 
 .market-card__badge {

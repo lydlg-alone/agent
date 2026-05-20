@@ -85,8 +85,8 @@ function formatRelativeTime(value) {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-right: 1px solid #dbeafe;
-  background: rgba(255, 255, 255, 0.72);
+  border-right: 1px solid var(--brand-blue-border);
+  background: var(--bg-overlay);
   backdrop-filter: blur(10px);
 }
 
@@ -95,21 +95,21 @@ function formatRelativeTime(value) {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  border-bottom: 1px solid #dbeafe;
+  border-bottom: 1px solid var(--brand-blue-border);
 }
 
 .history-panel__header h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .history-panel__header p {
   margin: 4px 0 0;
   font-size: 12px;
   line-height: 1.6;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .history-panel__create {
@@ -117,8 +117,8 @@ function formatRelativeTime(value) {
   padding: 10px 14px;
   border: none;
   border-radius: 14px;
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--brand-blue);
+  color: var(--text-inverse);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -126,7 +126,7 @@ function formatRelativeTime(value) {
 }
 
 .history-panel__create:hover {
-  background: #1d4ed8;
+  background: var(--brand-blue-hover);
 }
 
 .history-panel__body {
@@ -140,20 +140,20 @@ function formatRelativeTime(value) {
 
 .history-item {
   padding: 14px;
-  border: 1px solid #dbe5f0;
+  border: 1px solid var(--border-primary);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg-surface);
   transition: 0.2s ease-in-out;
 }
 
 .history-item:hover {
-  border-color: #93c5fd;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
+  border-color: var(--brand-blue-border);
+  box-shadow: var(--shadow-card);
 }
 
 .history-item--active {
-  border-color: #60a5fa;
-  background: #eff6ff;
+  border-color: var(--brand-blue-border);
+  background: var(--brand-blue-light);
   box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35) inset;
 }
 
@@ -176,20 +176,20 @@ function formatRelativeTime(value) {
 .history-item__meta strong {
   font-size: 14px;
   line-height: 1.5;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .history-item__meta span {
   flex-shrink: 0;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .history-item p {
   margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.7;
-  color: #64748b;
+  color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -199,7 +199,7 @@ function formatRelativeTime(value) {
 .history-item__footer {
   margin-top: 10px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .history-item__actions {
@@ -210,19 +210,19 @@ function formatRelativeTime(value) {
 
 .history-item__action {
   flex: 1;
-  border: 1px solid #dbe5f0;
+  border: 1px solid var(--border-primary);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--bg-surface);
   padding: 8px 10px;
   font-size: 12px;
-  color: #475569;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: 0.2s ease;
 }
 
 .history-item__action:hover {
-  border-color: #93c5fd;
-  color: #2563eb;
+  border-color: var(--brand-blue-border);
+  color: var(--brand-blue);
 }
 
 .history-item__action--danger:hover {
@@ -233,7 +233,7 @@ function formatRelativeTime(value) {
 .history-empty {
   padding: 32px 18px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -254,7 +254,7 @@ button:disabled {
 @media (max-width: 1279px) {
   .history-panel {
     border-right: none;
-    border-bottom: 1px solid #dbeafe;
+    border-bottom: 1px solid var(--brand-blue-border);
   }
 }
 </style>
