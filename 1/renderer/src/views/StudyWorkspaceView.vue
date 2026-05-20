@@ -179,6 +179,10 @@
           </article>
         </div>
       </section>
+
+      <section class="page-view page-view--standard" :class="{ active: currentPage === 'analytics' }">
+        <AnalyticsView />
+      </section>
     </div>
 
     <input ref="chatFileInputRef" type="file" class="hidden-file-input" multiple @change="handleChatFileChange" />
@@ -197,6 +201,7 @@ import ComposerPanel from "@/components/workspace/ComposerPanel.vue";
 import KnowledgeList from "@/components/workspace/KnowledgeList.vue";
 import SettingsForm from "@/components/workspace/SettingsForm.vue";
 import StatusPanel from "@/components/workspace/StatusPanel.vue";
+import AnalyticsView from "@/views/AnalyticsView.vue";
 import { useRuntimeSubscription } from "@/composables/useRuntimeSubscription.js";
 import {
   activateAgent,
@@ -265,7 +270,9 @@ const iconPaths = {
   plug:
     "M8.25 3.75a.75.75 0 0 1 1.5 0v4.5H12v-4.5a.75.75 0 0 1 1.5 0v4.5h.75A2.25 2.25 0 0 1 16.5 10.5v1.5A4.5 4.5 0 0 1 12.75 16.43v3.82a.75.75 0 0 1-1.5 0v-3.82A4.5 4.5 0 0 1 7.5 12v-1.5a2.25 2.25 0 0 1 2.25-2.25h.75v-4.5Zm1.5 6a.75.75 0 0 0-.75.75V12a3 3 0 1 0 6 0v-1.5a.75.75 0 0 0-.75-.75h-4.5Z",
   folderOpen:
-    "M2.25 6A2.25 2.25 0 0 1 4.5 3.75h4.03c.6 0 1.17.24 1.6.66l1.44 1.44c.14.14.33.22.53.22H19.5A2.25 2.25 0 0 1 21.75 8.3v7.2a2.25 2.25 0 0 1-2.25 2.25H5.12a2.25 2.25 0 0 1-2.17-2.84l1.52-5.47a2.25 2.25 0 0 1 2.17-1.66h12.62a.75.75 0 0 1 .72.95l-1.38 4.97a1.5 1.5 0 0 1-1.45 1.1H7.88a.75.75 0 0 0 0 1.5h8.7a2.25 2.25 0 0 0 2.17-1.66l1-3.59H6.63a.75.75 0 0 0-.72.55l-1.52 5.47a.75.75 0 0 0 .72.95H19.5a.75.75 0 0 0 .75-.75V8.3a.75.75 0 0 0-.75-.75H12.1a2.23 2.23 0 0 1-1.6-.66L9.05 5.45a.75.75 0 0 0-.52-.2H4.5A.75.75 0 0 0 3.75 6v.75h-1.5V6Z"
+    "M2.25 6A2.25 2.25 0 0 1 4.5 3.75h4.03c.6 0 1.17.24 1.6.66l1.44 1.44c.14.14.33.22.53.22H19.5A2.25 2.25 0 0 1 21.75 8.3v7.2a2.25 2.25 0 0 1-2.25 2.25H5.12a2.25 2.25 0 0 1-2.17-2.84l1.52-5.47a2.25 2.25 0 0 1 2.17-1.66h12.62a.75.75 0 0 1 .72.95l-1.38 4.97a1.5 1.5 0 0 1-1.45 1.1H7.88a.75.75 0 0 0 0 1.5h8.7a2.25 2.25 0 0 0 2.17-1.66l1-3.59H6.63a.75.75 0 0 0-.72.55l-1.52 5.47a.75.75 0 0 0 .72.95H19.5a.75.75 0 0 0 .75-.75V8.3a.75.75 0 0 0-.75-.75H12.1a2.23 2.23 0 0 1-1.6-.66L9.05 5.45a.75.75 0 0 0-.52-.2H4.5A.75.75 0 0 0 3.75 6v.75h-1.5V6Z",
+  chart:
+    "M3 13.5a.75.75 0 0 1 .75.75V18a.75.75 0 0 0 .75.75h3a.75.75 0 0 0 0-1.5H6v-3a.75.75 0 0 1 1.5 0v3h1.5v-5.25a.75.75 0 0 1 1.5 0v5.25H12v-8.25a.75.75 0 0 1 1.5 0v8.25h1.5v-3.75a.75.75 0 0 1 1.5 0v3.75H18a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 1 1.5 0V18A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18v-3.75A.75.75 0 0 1 3 13.5Z"
 };
 
 const folderOpenIconPath = iconPaths.folderOpen;
@@ -274,6 +281,7 @@ const navItems = [
   { key: "chat", label: "聊天", iconPath: iconPaths.chat },
   { key: "kb", label: "知识库", iconPath: iconPaths.book },
   { key: "market", label: "智能体", iconPath: iconPaths.store },
+  { key: "analytics", label: "仪表盘", iconPath: iconPaths.chart },
   { key: "settings", label: "设置", iconPath: iconPaths.settings }
 ];
 
@@ -1109,17 +1117,12 @@ watch(currentPage, async (page) => {
 </script>
 
 <style scoped>
-:root {
-  --main-blue: #005fb8;
-  --panel-border: rgba(208, 223, 243, 0.9);
-}
-
 .study-shell {
   height: 100vh;
   display: flex;
   overflow: hidden;
-  background: linear-gradient(180deg, #f5f9ff 0%, #f7fbff 48%, #edf4ff 100%);
-  color: #1f2937;
+  background: var(--bg-app);
+  color: var(--text-primary);
 }
 
 .side-nav {
@@ -1129,8 +1132,8 @@ watch(currentPage, async (page) => {
   align-items: center;
   gap: 40px;
   padding: 32px 0;
-  background: #004a8f;
-  color: #dbeafe;
+  background: var(--bg-nav);
+  color: var(--text-nav);
   z-index: 10;
 }
 
@@ -1145,8 +1148,8 @@ watch(currentPage, async (page) => {
   align-items: center;
   justify-content: center;
   border-radius: 18px;
-  background: #ffffff;
-  color: #004a8f;
+  background: var(--bg-surface);
+  color: var(--bg-nav);
   box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
 }
 
@@ -1166,8 +1169,8 @@ watch(currentPage, async (page) => {
 
 .nav-button:hover,
 .nav-button--active {
-  background: #ffffff;
-  color: var(--main-blue);
+  background: var(--bg-surface);
+  color: var(--brand-blue);
   box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
 }
 
@@ -1221,8 +1224,8 @@ watch(currentPage, async (page) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid #dbeafe;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--brand-blue-border);
   backdrop-filter: blur(10px);
 }
 
@@ -1236,13 +1239,13 @@ watch(currentPage, async (page) => {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .top-bar__title p {
   margin: 2px 0 0;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .online-dot {
@@ -1250,7 +1253,7 @@ watch(currentPage, async (page) => {
   height: 12px;
   flex-shrink: 0;
   border-radius: 999px;
-  background: #22c55e;
+  background: var(--dot-online);
 }
 
 .top-bar__actions {
@@ -1258,14 +1261,14 @@ watch(currentPage, async (page) => {
   align-items: center;
   gap: 16px;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .model-pill {
   padding: 4px 12px;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--brand-blue-light);
+  color: var(--color-info);
   font-size: 14px;
 }
 
@@ -1277,13 +1280,13 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .clear-button:hover {
-  color: #2563eb;
+  color: var(--color-info);
 }
 
 .action-icon {
@@ -1322,28 +1325,28 @@ watch(currentPage, async (page) => {
   margin: 0;
   font-size: 30px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .page-header p {
   margin: 8px 0 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .market-active-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .market-active-text span {
   font-weight: 700;
-  color: #2563eb;
+  color: var(--color-info);
 }
 
 .surface-card {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid var(--panel-border);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-primary);
   backdrop-filter: blur(10px);
 }
 
@@ -1381,8 +1384,8 @@ watch(currentPage, async (page) => {
 }
 
 .market-card__icon--blue {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--brand-blue-border);
+  color: var(--color-info);
 }
 
 .market-card__icon--orange {
@@ -1398,40 +1401,40 @@ watch(currentPage, async (page) => {
 .market-card__badge {
   padding: 4px 12px;
   border-radius: 999px;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--bg-surface-alt);
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .market-card__badge--active {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--brand-blue-border);
+  color: var(--color-info);
 }
 
 .market-card h4 {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .market-card__subtitle {
   margin: 4px 0 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .market-card__description {
   margin: 16px 0 0;
   font-size: 14px;
   line-height: 1.7;
-  color: #4b5563;
+  color: var(--text-primary);
 }
 
 .market-card__specialty {
   margin: 12px 0 0;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   line-height: 1.7;
 }
 
@@ -1440,18 +1443,18 @@ watch(currentPage, async (page) => {
   margin-top: 24px;
   padding: 12px 16px;
   border-radius: 18px;
-  border: 1px solid #bfdbfe;
-  background: #ffffff;
-  color: #2563eb;
+  border: 1px solid var(--brand-blue-border);
+  background: var(--bg-surface);
+  color: var(--color-info);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .market-card__button--active {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
+  background: var(--bg-avatar-user);
+  border-color: var(--bg-avatar-user);
+  color: var(--text-inverse);
 }
 
 .hidden-file-input {

@@ -38,6 +38,66 @@ http://127.0.0.1:3001/api
 
 获取首页摘要数据。
 
+### `GET /analytics/overview`
+
+获取学习数据统计总览（新增）。
+
+响应示例：
+
+```json
+{
+  "counts": {
+    "sessions": 12,
+    "messages": 156,
+    "userMessages": 78,
+    "assistantMessages": 78,
+    "documents": 8,
+    "knowledgeBases": 1,
+    "agents": 4,
+    "questions": 20,
+    "answers": 15,
+    "resources": 5,
+    "plans": 3,
+    "bookmarks": 7,
+    "totalDocSizeBytes": 245760
+  },
+  "dailyActivity": [
+    { "day": "2025-01-10", "total": 24, "user_count": 12, "assistant_count": 12 },
+    { "day": "2025-01-11", "total": 18, "user_count": 9, "assistant_count": 9 }
+  ],
+  "scoreTrend": [
+    { "day": "2025-01-10", "avg_score": 78.5, "count": 3 },
+    { "day": "2025-01-11", "avg_score": 85.0, "count": 2 }
+  ],
+  "docTypeDistribution": [
+    { "type": "pdf", "count": 3, "total_size": 120000 },
+    { "type": "markdown", "count": 5, "total_size": 125760 }
+  ],
+  "recentDocuments": [
+    {
+      "id": "kdoc_xxx",
+      "name": "高等数学复习提纲.pdf",
+      "sourceType": "pdf",
+      "sizeBytes": 45000,
+      "createdAt": "2025-01-11T08:00:00.000Z"
+    }
+  ],
+  "recentSessions": [
+    {
+      "id": "chat_xxx",
+      "title": "JavaScript 异步复习",
+      "updatedAt": "2025-01-11T10:00:00.000Z",
+      "messageCount": 24
+    }
+  ],
+  "practiceSummary": {
+    "totalQuestions": 20,
+    "totalAnswers": 15,
+    "avgScore": 82.3
+  }
+}
+```
+
 ## 模型与运行时配置
 
 ### `GET /models`
@@ -320,6 +380,8 @@ http://127.0.0.1:3001/api
 }
 ```
 
+> 注意：`assistantMessage.content` 可能包含 Markdown 格式文本（GFM 表格、代码块、LaTeX 公式等），前端通过 `marked` + `highlight.js` + `KaTeX` 渲染。
+
 ### `POST /chat/messages/stream`
 
 发送流式聊天消息，返回 `SSE` 事件流。
@@ -345,30 +407,99 @@ data: {"type":"delta","delta":"然后拆成 3 个阶段。"}
 data: {"type":"done","message":{"role":"assistant","content":"..."}}
 ```
 
+> 注意：`delta` 事件中的内容为纯文本片段，前端在流式完成后整体渲染 Markdown。
+
 ## 学习工作流
 
 ### `POST /workflows/diagnose`
 
 诊断学习状态。
 
+请求体示例：
+
+```json
+{
+  "goal": "掌握 JavaScript 异步编程",
+  "level": "中级"
+}
+```
+
 ### `POST /workflows/plan`
 
 生成学习计划。
+
+请求体示例：
+
+```json
+{
+  "goal": "掌握 JavaScript 异步编程",
+  "difficulty": "中等"
+}
+```
 
 ### `POST /workflows/resources`
 
 生成学习资料。
 
+请求体示例：
+
+```json
+{
+  "topic": "Promise 与 async/await",
+  "goal": "掌握 JavaScript 异步编程",
+  "resourceType": "讲义",
+  "difficulty": "中等",
+  "knowledgeBaseId": "kb_xxx"
+}
+```
+
 ### `POST /workflows/practice`
 
 生成练习内容。
+
+请求体示例：
+
+```json
+{
+  "topic": "Promise 链式调用",
+  "questionType": "简答题",
+  "difficulty": "中等",
+  "knowledgeBaseId": "kb_xxx"
+}
+```
 
 ### `POST /workflows/feedback`
 
 评估答案并返回反馈。
 
+请求体示例：
+
+```json
+{
+  "questionId": "q_xxx",
+  "answerText": "Promise 是一种异步编程解决方案..."
+}
+```
+
+响应示例：
+
+```json
+{
+  "id": "ans_xxx",
+  "question_id": "q_xxx",
+  "answer_text": "Promise 是一种异步编程解决方案...",
+  "score": 88,
+  "feedback": "结构完整，建议补充更具体的案例。",
+  "mistakeSummary": [],
+  "nextStep": "进入综合测试阶段"
+}
+```
+
 ## 备注
 
 - 当前检索能力基于 SQLite `FTS5` 文本召回
-- 当前配置文件位于系统“文档”目录下的 `agent API/runtime-config.json`
+- 当前配置文件位于系统"文档"目录下的 `agent API/runtime-config.json`
 - `API Key` 不再明文返回或导出
+- 聊天消息支持 Markdown/LaTeX 格式，前端负责渲染
+- 仪表盘接口从 SQLite 实时聚合统计，无数据时返回空数组/零值
+- 学习工作流接口支持 LLM 调用（需配置有效运行时）和 Mock 降级两种模式

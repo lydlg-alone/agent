@@ -243,3 +243,8 @@ export async function importModelConfig(config) {
   const { data } = await api.post("/models/import", config);
   return data;
 }
+
+export async function fetchAnalytics() {
+  const { data } = await api.get("/analytics/overview");
+  return data;
+}

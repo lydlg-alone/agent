@@ -1,64 +1,7 @@
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderInlineMarkdown(text) {
-  let html = escapeHtml(String(text || ""));
-  html = html.replace(/`([^`]+)`/g, "<code class=\"md-inline-code\">$1</code>");
-  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
-  return html;
-}
-
-function renderMarkdownBlock(block) {
-  if (block.startsWith("```") && block.endsWith("```")) {
-    const codeContent = block.replace(/^```[\w-]*\n?/, "").replace(/\n?```$/, "");
-    return `<pre class="md-pre"><code>${escapeHtml(codeContent)}</code></pre>`;
-  }
-
-  const lines = block.split("\n");
-
-  if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
-    const items = lines
-      .map((line) => line.replace(/^\s*[-*]\s+/, "").trim())
-      .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
-      .join("");
-    return `<ul class="md-list">${items}</ul>`;
-  }
-
-  if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
-    const items = lines
-      .map((line) => line.replace(/^\s*\d+\.\s+/, "").trim())
-      .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
-      .join("");
-    return `<ol class="md-list md-list--ordered">${items}</ol>`;
-  }
-
-  if (lines.length === 1 && /^#{1,3}\s+/.test(lines[0])) {
-    const level = Math.min((lines[0].match(/^#+/)?.[0].length || 1) + 2, 6);
-    const text = lines[0].replace(/^#{1,3}\s+/, "");
-    return `<h${level} class="md-heading">${renderInlineMarkdown(text)}</h${level}>`;
-  }
-
-  return `<p>${lines.map((line) => renderInlineMarkdown(line)).join("<br>")}</p>`;
-}
+import { renderMarkdown } from "./markdownRenderer.js";
 
 export function renderMessageContent(content) {
-  const source = String(content || "").replace(/\r\n/g, "\n").trim();
-  if (!source) {
-    return "<p></p>";
-  }
-
-  const blocks = source
-    .split(/\n{2,}/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return blocks.map(renderMarkdownBlock).join("");
+  return renderMarkdown(content);
 }
 
 export function formatMessageTime(value) {

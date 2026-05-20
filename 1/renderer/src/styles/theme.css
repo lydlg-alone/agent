@@ -1,9 +1,157 @@
+/* ============================================================
+   暗色模式 CSS 变量体系
+   通过 [data-theme="dark"] 切换，三态：light / dark / system
+   ============================================================ */
+
 :root {
+  /* ---- 基础 ---- */
+  --color-scheme: light;
   color-scheme: light;
   font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
-  color: #1f2937;
+  color: var(--text-primary);
+
+  /* ---- 背景 ---- */
+  --bg-app: #edf4ff;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f8fafc;
+  --bg-surface-alt: #f1f5f9;
+  --bg-overlay: rgba(255, 255, 255, 0.88);
+
+  /* ---- 文字 ---- */
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --text-inverse: #ffffff;
+
+  /* ---- 导航 ---- */
+  --bg-nav: #004A8F;
+  --bg-nav-hover: rgba(255, 255, 255, 0.1);
+  --text-nav: #bfdbfe;
+  --text-nav-active: #ffffff;
+
+  /* ---- 聊天气泡 ---- */
+  --bg-bubble-user: linear-gradient(135deg, #005fb8, #0c78da);
+  --bg-bubble-assistant: #ffffff;
+  --text-bubble-user: #ffffff;
+  --text-bubble-assistant: #374151;
+  --border-bubble-assistant: #dbe5f0;
+
+  /* ---- 输入区 ---- */
+  --bg-input: #f9fafb;
+  --bg-input-focus: #ffffff;
+  --border-input: #e5e7eb;
+  --border-input-focus: #3b82f6;
+
+  /* ---- 边框 ---- */
+  --border-primary: #dbe5f0;
+  --border-subtle: #e5e7eb;
+  --border-light: #f1f5f9;
+
+  /* ---- 阴影 ---- */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-elevated: 0 4px 16px rgba(15, 23, 42, 0.1);
+
+  /* ---- 品牌色 ---- */
+  --brand-blue: #005fb8;
+  --brand-blue-hover: #004a8f;
+  --brand-blue-light: #eff6ff;
+  --brand-blue-border: #dbeafe;
+
+  /* ---- 功能色 ---- */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  /* ---- 状态指示 ---- */
+  --dot-online: #22c55e;
+  --dot-offline: #9ca3af;
+
+  /* ---- 代码块 ---- */
+  --bg-code: #0f172a;
+  --text-code: #e2e8f0;
+  --bg-inline-code: rgba(15, 23, 42, 0.08);
+  --bg-inline-code-user: rgba(255, 255, 255, 0.18);
+
+  /* ---- 引用/来源 ---- */
+  --bg-citation: #f8fafc;
+  --border-citation: #e2e8f0;
+
+  /* ---- KaTeX 公式 ---- */
+  --katex-color: inherit;
+  --katex-bg: transparent;
+
+  /* ---- 头像 ---- */
+  --bg-avatar-assistant: #dbeafe;
+  --border-avatar-assistant: #bfdbfe;
+  --text-avatar-assistant: #2563eb;
+  --bg-avatar-user: #0f172a;
+  --text-avatar-user: #ffffff;
 }
 
+/* ---- 暗色主题覆盖 ---- */
+[data-theme="dark"] {
+  --color-scheme: dark;
+  color-scheme: dark;
+
+  --bg-app: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-surface-hover: #334155;
+  --bg-surface-alt: #1a2332;
+  --bg-overlay: rgba(15, 23, 42, 0.92);
+
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-inverse: #0f172a;
+
+  --bg-nav: #0b1120;
+  --bg-nav-hover: rgba(255, 255, 255, 0.08);
+  --text-nav: #64748b;
+  --text-nav-active: #93c5fd;
+
+  --bg-bubble-user: linear-gradient(135deg, #2563eb, #3b82f6);
+  --bg-bubble-assistant: #1e293b;
+  --text-bubble-user: #ffffff;
+  --text-bubble-assistant: #e2e8f0;
+  --border-bubble-assistant: #334155;
+
+  --bg-input: #1e293b;
+  --bg-input-focus: #1e293b;
+  --border-input: #334155;
+  --border-input-focus: #3b82f6;
+
+  --border-primary: #334155;
+  --border-subtle: #1e293b;
+  --border-light: #1a2332;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+  --brand-blue: #3b82f6;
+  --brand-blue-hover: #2563eb;
+  --brand-blue-light: #1e3a5f;
+  --brand-blue-border: #1e40af;
+
+  --dot-online: #22c55e;
+  --dot-offline: #64748b;
+
+  --bg-code: #0b1120;
+  --text-code: #cbd5e1;
+  --bg-inline-code: rgba(255, 255, 255, 0.1);
+  --bg-inline-code-user: rgba(255, 255, 255, 0.2);
+
+  --bg-citation: #1a2332;
+  --border-citation: #334155;
+
+  --bg-avatar-assistant: #1e3a5f;
+  --border-avatar-assistant: #1e40af;
+  --text-avatar-assistant: #93c5fd;
+  --bg-avatar-user: #3b82f6;
+  --text-avatar-user: #ffffff;
+}
+
+/* ---- 全局重置 ---- */
 * {
   box-sizing: border-box;
 }
@@ -16,7 +164,8 @@ body,
 }
 
 body {
-  background: #edf4ff;
+  background: var(--bg-app);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 button,
@@ -28,4 +177,61 @@ textarea {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* ---- Element Plus 暗色补充微调 ---- */
+[data-theme="dark"] .el-dialog {
+  --el-dialog-bg-color: var(--bg-surface);
+}
+[data-theme="dark"] .el-message {
+  --el-message-bg-color: var(--bg-surface);
+}
+
+/* ---- highlight.js 暗色覆盖 ---- */
+[data-theme="dark"] .hljs {
+  background: var(--bg-code);
+  color: #c9d1d9;
+}
+[data-theme="dark"] .hljs-keyword,
+[data-theme="dark"] .hljs-selector-tag,
+[data-theme="dark"] .hljs-title,
+[data-theme="dark"] .hljs-section,
+[data-theme="dark"] .hljs-doctag,
+[data-theme="dark"] .hljs-name,
+[data-theme="dark"] .hljs-strong {
+  color: #ff7b72;
+}
+[data-theme="dark"] .hljs-comment {
+  color: #8b949e;
+}
+[data-theme="dark"] .hljs-string,
+[data-theme="dark"] .hljs-attr,
+[data-theme="dark"] .hljs-built_in,
+[data-theme="dark"] .hljs-type,
+[data-theme="dark"] .hljs-selector-attr,
+[data-theme="dark"] .hljs-selector-pseudo,
+[data-theme="dark"] .hljs-addition,
+[data-theme="dark"] .hljs-template-tag,
+[data-theme="dark"] .hljs-template-variable {
+  color: #79c0ff;
+}
+[data-theme="dark"] .hljs-number,
+[data-theme="dark"] .hljs-literal,
+[data-theme="dark"] .hljs-variable,
+[data-theme="dark"] .hljs-deletion {
+  color: #ffa657;
+}
+[data-theme="dark"] .hljs-meta {
+  color: #d2a8ff;
+}
+[data-theme="dark"] .hljs-emphasis {
+  font-style: italic;
+}
+
+/* ---- KaTeX 暗色适配 ---- */
+[data-theme="dark"] .katex {
+  color: #e2e8f0;
+}
+[data-theme="dark"] .chat-bubble-user .katex {
+  color: #ffffff;
 }
