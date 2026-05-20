@@ -155,7 +155,7 @@ function createChatSessionRecord(title = "新建对话") {
   return {
     id: createId("chat"),
     title,
-    modelConfigId: getCurrentModelConfig()?.id || null,
+    modelConfigId: null,
     status: "active",
     createdAt: now,
     updatedAt: now

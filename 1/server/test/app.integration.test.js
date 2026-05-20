@@ -178,6 +178,15 @@ test("server integration flows", async (t) => {
     assert.equal(currentResult.json.settings.systemPrompt, payload.systemPrompt);
   });
 
+  await t.test("workspace can initialize after runtime config is saved", async () => {
+    const { response, json } = await requestJson("/api/chat/workspace");
+
+    assert.equal(response.status, 200);
+    assert.ok(json.activeSessionId);
+    assert.ok(json.activeSession);
+    assert.equal(json.activeSession.id, json.activeSessionId);
+  });
+
   await t.test("schema validation rejects empty chat messages", async () => {
     clearRuntimeConfig();
 
