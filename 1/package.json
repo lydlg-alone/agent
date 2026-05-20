@@ -2,10 +2,17 @@
   "name": "ai-learning-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "基于大模型的个性化资源生成与学习多智能体桌面应用",
+  "description": "基于大模型的本地学习多智能体桌面应用",
   "main": "electron/main.cjs",
   "type": "module",
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=18.18.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
+    "setup": "npm ci",
+    "check:env": "node scripts/check-env.mjs",
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:server\" \"npm:dev:electron\"",
     "dev:renderer": "vite --config vite.config.js",
     "dev:server": "node server/src/index.js",
