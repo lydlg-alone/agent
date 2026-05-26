@@ -6,6 +6,7 @@ import { getCurrentModelConfig } from "./modelConfigService.js";
 import { getRuntimeCredentials } from "./runtimeConfigService.js";
 import { chunkText } from "./chunkingService.js";
 import { parseDocumentFromUpload } from "./documentParserService.js";
+import { extractTextFromImageDataUrl } from "./imageOcrService.js";
 import { buildCitationPrompt, indexChunks, removeChunks, searchChunks } from "./ragService.js";
 import { buildWebSearchPrompt, searchWeb } from "./webToolService.js";
 
@@ -322,9 +323,18 @@ function isImageAttachment(attachment) {
   return String(attachment?.mimeType || "").startsWith("image/");
 }
 
+function buildImageAttachmentExcerpt(name, ocrText = "") {
+  const normalizedText = String(ocrText || "").trim().slice(0, 2000);
+  if (normalizedText) {
+    return `图片附件：${name}\nOCR识别文本：\n${normalizedText}`;
+  }
+
+  return `图片附件：${name}\nOCR 未提取到清晰文字，系统会保留该图片并继续作为附件上下文使用。`;
+}
+
 function buildToolOptions(payload = {}) {
   return {
-    useTools: Boolean(payload.useTools || payload.useWebSearch),
+    useTools: payload.useTools !== false || Boolean(payload.useWebSearch),
     useWebSearch: Boolean(payload.useWebSearch),
     useStructuredOutput: Boolean(payload.useStructuredOutput),
     useHybridRetrieval: payload.useHybridRetrieval !== false,
@@ -397,17 +407,49 @@ function buildStructuredOutputInstruction() {
   ].join("\n");
 }
 
-function buildUserMessageContent(userContent, attachments, toolOptions) {
+function supportsNativeVision(runtime, modelId = "") {
+  const provider = String(runtime?.provider || "").trim().toLowerCase();
+  const model = String(modelId || runtime?.modelId || "").trim().toLowerCase();
+  const baseUrl = String(runtime?.baseUrl || "").trim().toLowerCase();
+
+  if (!provider && !model && !baseUrl) {
+    return false;
+  }
+
+  if (provider.includes("deepseek") || baseUrl.includes("deepseek")) {
+    return false;
+  }
+
+  if (provider.includes("openai") || baseUrl.includes("openai")) {
+    return /(gpt-4o|gpt-4\.1|o1|o3|omni|vision)/.test(model);
+  }
+
+  if (provider.includes("qwen") || baseUrl.includes("dashscope")) {
+    return /vl|vision/.test(model);
+  }
+
+  if (provider.includes("ollama") || baseUrl.includes("ollama")) {
+    return /(llava|minicpm-v|internvl|qwen2\.5-vl|moondream)/.test(model);
+  }
+
+  return /(vision|vl|gpt-4o|gpt-4\.1|omni|llava|minicpm-v|internvl|qwen2\.5-vl)/.test(model);
+}
+
+function buildUserMessageContent(userContent, attachments, toolOptions, runtime) {
   const textBlocks = [String(userContent || "").trim()];
   if (attachments.length) {
     textBlocks.push(`本轮附件：${attachments.map((item) => item.name).join("、")}`);
   }
 
-  const imageAttachments = toolOptions.useImageVision
+  const canSendVisionInput = toolOptions.useImageVision && supportsNativeVision(runtime);
+  const imageAttachments = canSendVisionInput
     ? attachments.filter((item) => isImageAttachment(item) && item.contentData)
     : [];
 
   if (!imageAttachments.length) {
+    if (toolOptions.useImageVision && attachments.some((item) => isImageAttachment(item))) {
+      textBlocks.push("当前模型不支持直接识图输入，系统已保留图片附件，但不会发送 image_url 格式给该模型。");
+    }
     return textBlocks.join("\n\n");
   }
 
@@ -485,7 +527,7 @@ function buildModelMessages({
   return [
     { role: "system", content: systemBlocks.join("\n\n") },
     ...normalizeHistoryMessages(session.messages),
-    { role: "user", content: buildUserMessageContent(userContent, attachments, toolOptions) }
+    { role: "user", content: buildUserMessageContent(userContent, attachments, toolOptions, runtime) }
   ];
 }
 
@@ -642,11 +684,12 @@ async function executeToolCall(toolCall, context) {
   };
 }
 
-function buildModelRequestBody({ modelId, messages, toolOptions, tools = [] }) {
+function buildModelRequestBody({ modelId, messages, toolOptions, tools = [], ...rest }) {
   const body = {
     model: modelId,
     messages,
-    temperature: 0.7
+    temperature: 0.7,
+    ...rest
   };
 
   if (tools.length) {
@@ -661,6 +704,67 @@ function buildModelRequestBody({ modelId, messages, toolOptions, tools = [] }) {
   return body;
 }
 
+function hasVisionContent(message) {
+  return Array.isArray(message?.content) && message.content.some((item) => item?.type === "image_url");
+}
+
+function normalizeMessageContentToText(content) {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return String(content || "").trim();
+  }
+
+  return content
+    .map((item) => {
+      if (item?.type === "text") {
+        return item.text || "";
+      }
+
+      if (item?.type === "image_url") {
+        return "[图片附件已转为文本上下文处理]";
+      }
+
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
+function stripVisionContentFromMessages(messages = []) {
+  return messages.map((message) => {
+    if (!Array.isArray(message?.content)) {
+      return message;
+    }
+
+    return {
+      ...message,
+      content: normalizeMessageContentToText(message.content)
+    };
+  });
+}
+
+function sanitizeMessagesForRuntime(messages = [], runtime, modelId = "") {
+  if (supportsNativeVision(runtime, modelId)) {
+    return messages;
+  }
+
+  return stripVisionContentFromMessages(messages);
+}
+
+function isImageUrlVariantError(error) {
+  const detail =
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    "";
+
+  return /image_url/i.test(String(detail)) && /unknown variant|deserialize/i.test(String(detail));
+}
+
 async function requestChatCompletion(runtime, body, options = {}) {
   return await axios.post(buildApiUrl(runtime.baseUrl, "/chat/completions"), body, {
     headers: {
@@ -670,6 +774,38 @@ async function requestChatCompletion(runtime, body, options = {}) {
     timeout: options.timeout || 45000,
     responseType: options.responseType
   });
+}
+
+async function requestChatCompletionWithVisionFallback(runtime, payload, options = {}) {
+  const sanitizedMessages = sanitizeMessagesForRuntime(payload.messages, runtime, payload.modelId);
+  const initialPayload = {
+    ...payload,
+    messages: sanitizedMessages
+  };
+  const body = buildModelRequestBody(initialPayload);
+
+  try {
+    const response = await requestChatCompletion(runtime, body, options);
+    return {
+      response,
+      messages: sanitizedMessages
+    };
+  } catch (error) {
+    if (!isImageUrlVariantError(error) || !sanitizedMessages.some(hasVisionContent)) {
+      throw error;
+    }
+
+    const retryMessages = stripVisionContentFromMessages(sanitizedMessages);
+    const retryBody = buildModelRequestBody({
+      ...initialPayload,
+      messages: retryMessages
+    });
+    const response = await requestChatCompletion(runtime, retryBody, options);
+    return {
+      response,
+      messages: retryMessages
+    };
+  }
 }
 
 async function requestModelReply(context) {
@@ -691,10 +827,12 @@ async function requestModelReply(context) {
     toolOptions
   });
   const tools = buildToolDefinitions(toolOptions);
-  const response = await requestChatCompletion(
+  const initialResult = await requestChatCompletionWithVisionFallback(
     runtime,
-    buildModelRequestBody({ modelId, messages, toolOptions, tools })
+    { modelId, messages, toolOptions, tools }
   );
+  const response = initialResult.response;
+  const effectiveMessages = initialResult.messages;
 
   const toolCalls = extractToolCalls(response.data);
   if (toolCalls.length) {
@@ -708,20 +846,21 @@ async function requestModelReply(context) {
       });
     }
 
-    const followupResponse = await requestChatCompletion(
+    const followupResult = await requestChatCompletionWithVisionFallback(
       runtime,
-      buildModelRequestBody({
+      {
         modelId,
         messages: [
-          ...messages,
+          ...effectiveMessages,
           response.data.choices[0].message,
           ...toolMessages
         ],
         toolOptions,
         tools: []
-      }),
+      },
       { timeout: 60000 }
     );
+    const followupResponse = followupResult.response;
 
     const followupContent = extractAssistantContent(followupResponse.data);
     if (!followupContent) {
@@ -767,28 +906,24 @@ async function requestModelReplyStream(
     return null;
   }
 
-  const response = await requestChatCompletion(
+  const streamMessages = buildModelMessages({
+    session,
+    userContent,
+    attachments,
+    activeAgent,
+    relatedKnowledgeBases,
     runtime,
-    {
-      ...buildModelRequestBody({
-        modelId,
-        messages: buildModelMessages({
-          session,
-          userContent,
-          attachments,
-          activeAgent,
-          relatedKnowledgeBases,
-          runtime,
-          ragContext,
-          webContext,
-          toolOptions
-        }),
-        toolOptions
-      }),
-      stream: true
-    },
+    ragContext,
+    webContext,
+    toolOptions
+  });
+
+  const streamResult = await requestChatCompletionWithVisionFallback(
+    runtime,
+    { modelId, messages: streamMessages, toolOptions, stream: true },
     { responseType: "stream", timeout: 60000 }
   );
+  const response = streamResult.response;
 
   return await new Promise((resolve, reject) => {
     let buffer = "";
@@ -909,13 +1044,24 @@ function insertMessage(record) {
 }
 
 async function maybeIndexAttachment(record, payloadContentText) {
-  if (isImageAttachment(record)) {
-    return record.contentExcerpt;
-  }
-
   const source = String(payloadContentText || "").trim();
   if (!source) {
     return record.contentExcerpt;
+  }
+
+  if (isImageAttachment(record)) {
+    const extractedText = await extractTextFromImageDataUrl(source);
+    const excerpt = buildImageAttachmentExcerpt(record.name, extractedText);
+    getDb().prepare("UPDATE chat_attachments SET content_excerpt = ? WHERE id = ?").run(excerpt, record.id);
+
+    if (extractedText) {
+      const chunks = chunkText(extractedText);
+      if (chunks.length) {
+        indexChunks("chat_attachment", record.id, record.name, chunks);
+      }
+    }
+
+    return excerpt;
   }
 
   try {
@@ -1203,6 +1349,10 @@ export async function uploadAttachment(payload) {
     createdAt: new Date().toISOString()
   };
 
+  if (isImageAttachment(payload)) {
+    record.contentExcerpt = buildImageAttachmentExcerpt(payload.name);
+  }
+
   getDb()
     .prepare(
       `INSERT INTO chat_attachments (
@@ -1232,6 +1382,37 @@ export async function uploadAttachment(payload) {
     contentExcerpt: record.contentExcerpt,
     isImage: isImageAttachment(record),
     createdAt: record.createdAt
+  };
+}
+
+export function deleteAttachment(attachmentId) {
+  const db = getDb();
+  const existing = db
+    .prepare(
+      `SELECT id, session_id
+       FROM chat_attachments
+       WHERE id = ?`
+    )
+    .get(attachmentId);
+
+  if (!existing) {
+    const error = new Error("附件不存在。");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  db.transaction(() => {
+    removeChunks("chat_attachment", attachmentId);
+    db.prepare("DELETE FROM chat_attachments WHERE id = ?").run(attachmentId);
+    updateSessionActivity(existing.session_id);
+  })();
+
+  const session = getSessionById(existing.session_id);
+  return {
+    deletedAttachmentId: attachmentId,
+    sessionId: existing.session_id,
+    attachments: session?.attachments || [],
+    updatedAt: session?.updatedAt || new Date().toISOString()
   };
 }
 

@@ -9,17 +9,17 @@ http://127.0.0.1:3001/api
 ## 通用约定
 
 - 普通接口使用 `application/json`
-- 流式聊天接口使用 `text/event-stream`
+- 流式聊天与模型配置流使用 `text/event-stream`
 - 失败时统一返回：
 
 ```json
 {
   "code": "INTERNAL_ERROR",
-  "message": "Server error"
+  "message": "错误说明"
 }
 ```
 
-- 健康检查入口：
+- 健康检查：
 
 ```text
 GET /api/health
@@ -29,7 +29,13 @@ GET /api/health
 
 ### `GET /chat/workspace`
 
-获取聊天工作区初始化数据，包括当前会话、会话列表、模型、知识库和当前激活智能体。
+获取聊天工作区初始化数据，包括：
+
+- 当前模型
+- 当前激活智能体
+- 智能体目录
+- 会话列表
+- 当前会话详情
 
 ### `POST /chat/sessions`
 
@@ -51,13 +57,23 @@ GET /api/health
 
 重命名会话。
 
+请求体：
+
+```json
+{
+  "title": "新的会话名称"
+}
+```
+
 ### `DELETE /chat/sessions/:id`
 
 删除会话。
 
 ### `POST /chat/sessions/:id/clear`
 
-清空某个会话的消息。
+清空指定会话消息。
+
+## 2. 聊天附件
 
 ### `POST /chat/attachments`
 
@@ -67,7 +83,7 @@ GET /api/health
 
 ```json
 {
-  "sessionId": "session_xxx",
+  "sessionId": "chat_xxx",
   "name": "diagram.png",
   "mimeType": "image/png",
   "sizeBytes": 20480,
@@ -77,20 +93,48 @@ GET /api/health
 
 说明：
 
-- 文本类附件使用 `contentText`
-- 图片类附件也通过 `contentText` 传入 data URL
-- 返回结果中会包含 `isImage`
+- 文本类附件通过 `contentText` 传递内容。
+- 图片类附件也通过 `contentText` 传递 data URL。
+- 返回值中会包含 `isImage`。
+- 图片附件上传后，后端会尝试 OCR，成功时把识别文字写入 `contentExcerpt`。
+- OCR 失败不会导致上传失败。
+
+返回示例：
+
+```json
+{
+  "id": "att_xxx",
+  "sessionId": "chat_xxx",
+  "name": "diagram.png",
+  "mimeType": "image/png",
+  "sizeBytes": 20480,
+  "contentExcerpt": "图片附件：diagram.png\nOCR识别文本：\n示例文字",
+  "isImage": true,
+  "createdAt": "2026-05-26T10:00:00.000Z"
+}
+```
+
+### `DELETE /chat/attachments/:id`
+
+删除待发送附件。
+
+说明：
+
+- 仅删除当前会话附件记录与附件检索索引。
+- 适用于输入框中“文件卡片右上角删除”场景。
+
+## 3. 聊天消息
 
 ### `POST /chat/messages`
 
-发送非流式消息。
+发送普通消息。
 
 请求体：
 
 ```json
 {
-  "sessionId": "session_xxx",
-  "content": "根据我的知识库总结这篇资料",
+  "sessionId": "chat_xxx",
+  "content": "结合附件总结重点",
   "attachmentIds": ["att_xxx"],
   "useTools": true,
   "useWebSearch": false,
@@ -102,24 +146,42 @@ GET /api/health
 
 字段说明：
 
+- `content`
+  - 消息正文
+  - 与 `attachmentIds` 不能同时为空
+- `attachmentIds`
+  - 本轮消息关联的附件 ID 列表
 - `useTools`
-  - 允许模型调用本地工具
-  - 当前可调用 `search_knowledge`
+  - 是否允许工具调用
 - `useWebSearch`
-  - 启用联网搜索
-  - 开启时后端会自动把 `useTools` 视为开启
-  - 当前可调用 `web_search`
+  - 是否启用网页搜索
 - `useStructuredOutput`
-  - 要求模型按 JSON 对象返回
+  - 是否要求结构化输出
 - `useHybridRetrieval`
-  - 开启时使用 `hybrid` 检索
-  - 关闭时使用 `keyword` 检索
+  - 是否使用混合检索
 - `useImageVision`
-  - 上传图片时，是否作为视觉输入发送给模型
+  - 是否允许图片走视觉输入链路
+
+服务端规则：
+
+- `useWebSearch=true` 时，服务端会自动视为启用了工具调用。
+- 当前前端默认会传：
+  - `useTools=true`
+  - `useHybridRetrieval=true`
+  - `useImageVision=true`
+- 当前前端默认可切换：
+  - `useWebSearch`
+  - `useStructuredOutput`
+
+图片相关行为：
+
+- 若当前模型支持视觉输入，会发送 `image_url` 多模态消息。
+- 若当前模型不支持视觉输入，服务端会自动降级为纯文本上下文。
+- 若上游接口仍返回 `unknown variant 'image_url'` 一类错误，服务端会再次剥离视觉内容并自动重试。
 
 ### `POST /chat/messages/stream`
 
-发送流式消息，入参与 `/chat/messages` 一致。
+发送流式消息，入参与 `/chat/messages` 相同。
 
 SSE 事件类型：
 
@@ -131,18 +193,18 @@ SSE 事件类型：
 示例：
 
 ```text
-data: {"type":"start","sessionId":"session_xxx","assistantMessageId":"msg_xxx"}
+data: {"type":"start","sessionId":"chat_xxx","assistantMessageId":"msg_xxx"}
 
-data: {"type":"delta","delta":"这是第一段内容"}
+data: {"type":"delta","delta":"这是第一段"}
 
-data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","content":"完整回答"}}
+data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","content":"完整回复"}}
 ```
 
-注意：
+说明：
 
-- 当开启 `useTools` 或 `useStructuredOutput` 时，后端会先完成工具调用或结构化整合，再输出结果
+- 当开启 `useTools` 或 `useStructuredOutput` 时，后端会先完成整合再以流式分块输出最终文本。
 
-## 2. 知识库
+## 4. 知识库
 
 ### `GET /knowledge-bases`
 
@@ -160,21 +222,23 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
   "category": "学习资料",
   "status": "draft",
   "vectorStore": "SQLite + sqlite-vec",
-  "description": "用于存放前端学习材料"
+  "description": "用于存放前端学习资料"
 }
 ```
 
 ### `GET /knowledge/documents`
 
-获取知识文档列表。
+获取知识库文档列表。
 
 查询参数：
 
-- `search`：可选，按名称过滤
+- `search`
+  - 可选
+  - 按名称过滤
 
 ### `POST /knowledge/import`
 
-导入文件到知识库。
+导入本地文件内容。
 
 请求体：
 
@@ -182,7 +246,7 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
 {
   "files": [
     {
-      "name": "JavaScript 异步编程笔记.md",
+      "name": "JavaScript 异步笔记.md",
       "mimeType": "text/markdown",
       "sizeBytes": 8192,
       "contentText": "# Promise\n..."
@@ -193,21 +257,16 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
 
 ### `POST /knowledge/import-url`
 
-新增。导入网页正文到知识库。
+导入网页正文。
 
 请求体：
 
 ```json
 {
   "url": "https://example.com/article",
-  "title": "可选的手动标题"
+  "title": "可选标题"
 }
 ```
-
-说明：
-
-- 后端会抓取网页并提取正文文本
-- 结果会切片并进入检索索引
 
 ### `DELETE /knowledge/documents/:id`
 
@@ -215,7 +274,7 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
 
 ### `DELETE /knowledge/documents`
 
-清空所有知识文档。
+删除全部文档。
 
 ### `POST /knowledge-bases/:id/documents`
 
@@ -229,7 +288,7 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
 
 ```json
 {
-  "query": "JavaScript Promise 的核心概念",
+  "query": "Promise 核心概念",
   "mode": "hybrid",
   "rerank": true,
   "topK": 3
@@ -239,9 +298,9 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
 参数说明：
 
 - `mode` 可选值：`keyword`、`vector`、`hybrid`
-- `rerank` 控制是否执行重排
+- `rerank` 是否开启重排
 
-## 3. 模型与运行时配置
+## 5. 模型与运行时配置
 
 ### `GET /models`
 
@@ -249,11 +308,11 @@ data: {"type":"done","assistantMessage":{"id":"msg_xxx","role":"assistant","cont
 
 ### `GET /models/current`
 
-获取当前运行时配置、当前模型和最近成功连接记录。
+获取当前运行时配置、当前模型和最近连接信息。
 
 ### `GET /models/current/stream`
 
-SSE 方式订阅运行时配置变化。
+SSE 订阅当前运行时配置变化。
 
 ### `POST /models`
 
@@ -267,7 +326,7 @@ SSE 方式订阅运行时配置变化。
 
 ```json
 {
-  "provider": "deepseek",
+  "provider": "DeepSeek",
   "baseUrl": "https://api.deepseek.com/v1",
   "apiKey": "sk-***",
   "modelId": "deepseek-v4-flash",
@@ -277,7 +336,7 @@ SSE 方式订阅运行时配置变化。
 
 ### `POST /models/current/detect`
 
-检测当前模型配置是否可用，并尝试识别可连接模型。
+检测当前配置可用性，并尝试识别远端模型。
 
 ### `POST /models/test`
 
@@ -289,25 +348,25 @@ SSE 方式订阅运行时配置变化。
 
 ### `GET /models/history`
 
-获取模型连接历史。
+获取连接历史。
 
 ### `DELETE /models/history`
 
-清空模型连接历史。
+清空连接历史。
 
 ### `GET /models/recent-successful`
 
-获取最近成功连接过的模型。
+获取最近连接成功的模型。
 
 ### `POST /models/export`
 
-导出当前运行时配置。
+导出当前配置。
 
 ### `POST /models/import`
 
-导入运行时配置。
+导入配置。
 
-## 4. 智能体
+## 6. 智能体
 
 ### `GET /agents`
 
@@ -321,23 +380,11 @@ SSE 方式订阅运行时配置变化。
 
 创建智能体。
 
-请求体：
-
-```json
-{
-  "name": "默认学习助手",
-  "role": "study-assistant",
-  "modelBinding": "deepseek-v4-flash",
-  "promptTemplate": "你是一个耐心的学习助手。",
-  "knowledgeScope": "本地知识库、当前目标、最近会话"
-}
-```
-
 ### `POST /agents/:id/activate`
 
 激活指定智能体。
 
-## 5. 学习工作流
+## 7. 学习工作流
 
 ### `POST /workflows/diagnose`
 
@@ -357,9 +404,9 @@ SSE 方式订阅运行时配置变化。
 
 ### `POST /workflows/feedback`
 
-批改答案并给出反馈。
+批改答案并生成反馈。
 
-## 6. 统计与概览
+## 8. 概览与统计
 
 ### `GET /dashboard/summary`
 
@@ -367,17 +414,14 @@ SSE 方式订阅运行时配置变化。
 
 ### `GET /analytics/overview`
 
-获取统计页概览，包括消息量、文档量、会话量、练习情况等。
+获取统计概览，包括会话、消息、文档、练习等信息。
 
-## 7. 本次接口变更摘要
+## 9. 本轮接口更新摘要
 
-相对旧版本，当前接口新增或变化如下：
+当前文档对应版本新增或已同步的重点包括：
 
-- `/chat/messages` 与 `/chat/messages/stream`
-  - 新增五个能力开关字段
-- `/knowledge/import-url`
-  - 新增网页 URL 导入
-- `/knowledge-bases/:id/retrieval-test`
-  - 新增 `mode` 与 `rerank`
-- `/chat/attachments`
-  - 图片附件支持以 data URL 形式传入并标记为视觉附件
+- 新增 `DELETE /chat/attachments/:id`
+- 明确图片附件 OCR 处理逻辑
+- 明确视觉模型与非视觉模型的自动兼容策略
+- 明确前端默认自动开启 `useTools`、`useHybridRetrieval`、`useImageVision`
+- 同步会话重命名接口 `PATCH /chat/sessions/:id`

@@ -131,6 +131,11 @@ export async function uploadChatAttachment(payload) {
   return data;
 }
 
+export async function removeChatAttachment(attachmentId) {
+  const { data } = await api.delete(`/chat/attachments/${attachmentId}`);
+  return data;
+}
+
 export async function fetchKnowledgeDocuments(search = "") {
   const { data } = await api.get("/knowledge/documents", {
     params: search ? { search } : undefined

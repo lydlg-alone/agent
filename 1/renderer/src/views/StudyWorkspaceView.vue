@@ -94,6 +94,7 @@
               :pending-attachments="pendingAttachments"
               @update:tool-options="Object.assign(toolOptions, $event)"
               @attach="triggerChatFilePicker"
+              @remove-attachment="handleRemovePendingAttachment"
               @send="handleSendMessage"
             />
           </div>
@@ -198,7 +199,7 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import ChatPane from "@/components/workspace/ChatPane.vue";
 import ChatHistoryPanel from "@/components/workspace/ChatHistoryPanel.vue";
 import ComposerPanel from "@/components/workspace/ComposerPanel.vue";
@@ -230,6 +231,7 @@ import {
   importKnowledgeUrl,
   importModelConfig,
   renameChatSession,
+  removeChatAttachment,
   saveRuntimeSettings,
   sendChatMessage,
   streamChatMessage,
@@ -350,7 +352,7 @@ const recentSuccessfulModels = ref([]);
 const connectionHistory = ref([]);
 const availableRemoteModels = ref([]);
 const toolOptions = reactive({
-  useTools: false,
+  useTools: true,
   useWebSearch: false,
   useStructuredOutput: false,
   useHybridRetrieval: true,
@@ -650,8 +652,26 @@ async function handleRenameSession(session) {
     return;
   }
 
-  const title = window.prompt("请输入新的会话名称", session.title || "新建对话");
-  if (title === null) {
+  let title = "";
+  try {
+    const result = await ElMessageBox.prompt("请输入新的会话名称", "重命名会话", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      inputValue: session.title || "新建对话",
+      inputPlaceholder: "请输入新的会话名称",
+      inputValidator: (value) => {
+        const normalized = String(value || "").trim();
+        if (!normalized) {
+          return "会话名称不能为空";
+        }
+        if (normalized.length > 120) {
+          return "会话名称不能超过 120 个字符";
+        }
+        return true;
+      }
+    });
+    title = result.value;
+  } catch {
     return;
   }
 
@@ -686,8 +706,13 @@ async function handleDeleteSession(session) {
     return;
   }
 
-  const confirmed = window.confirm(`确认删除会话“${session.title || "新建对话"}”吗？`);
-  if (!confirmed) {
+  try {
+    await ElMessageBox.confirm(`确认删除会话“${session.title || "新建对话"}”吗？`, "删除会话", {
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+      type: "warning"
+    });
+  } catch {
     return;
   }
 
@@ -854,6 +879,34 @@ async function handleChatFileChange(event) {
     ElMessage.success(`已加入 ${uploaded.length} 个会话附件`);
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "上传附件失败"));
+  } finally {
+    loading.upload = false;
+  }
+}
+
+async function handleRemovePendingAttachment(attachment) {
+  const attachmentId = attachment?.id;
+  if (!attachmentId) {
+    return;
+  }
+
+  loading.upload = true;
+  try {
+    const result = await removeChatAttachment(attachmentId);
+    pendingAttachments.value = pendingAttachments.value.filter((item) => item.id !== attachmentId);
+
+    if (workspace.activeSession?.id === result.sessionId) {
+      workspace.activeSession = {
+        ...workspace.activeSession,
+        updatedAt: result.updatedAt || workspace.activeSession.updatedAt,
+        attachments: result.attachments || workspace.activeSession.attachments || []
+      };
+      syncSessionSummary(workspace.activeSession);
+    }
+
+    ElMessage.success("附件已移除");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "移除附件失败"));
   } finally {
     loading.upload = false;
   }

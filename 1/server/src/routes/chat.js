@@ -1,6 +1,7 @@
 import {
   clearSessionMessages,
   createSession,
+  deleteAttachment,
   deleteSession,
   getSessionDetail,
   getWorkspaceState,
@@ -121,6 +122,10 @@ export function registerChatRoutes(app) {
     } catch (error) {
       next(error);
     }
+  });
+
+  app.delete("/api/chat/attachments/:id", validateParams(idParamsSchema), (req, res) => {
+    res.json(deleteAttachment(req.validated.params.id));
   });
 
   app.post("/api/chat/messages", validateBody(messageSchema), async (req, res, next) => {

@@ -2,12 +2,23 @@
   <footer class="composer-panel">
     <div class="composer-inner">
       <div class="composer-box">
+        <div v-if="pendingAttachments.length" class="pending-files">
+          <AttachmentCard
+            v-for="attachment in pendingAttachments"
+            :key="attachment.id"
+            :attachment="attachment"
+            removable
+            variant="composer"
+            @remove="$emit('remove-attachment', attachment)"
+          />
+        </div>
+
         <textarea
           ref="composerRef"
           :value="modelValue"
           class="composer-input"
           rows="3"
-          placeholder="输入你的学习任务，例如：基于知识库生成 20 道测试题，并附上答案解析。"
+          placeholder="输入你的学习任务，例如：结合附件内容解释代码、总结重点或生成练习题。"
           @input="handleInput"
           @keydown.enter.exact.prevent="$emit('send')"
         />
@@ -24,9 +35,9 @@
                 :key="tool.key"
                 type="button"
                 class="tool-toggle"
-                :class="{ 'tool-toggle--active': toolOptions[tool.key] }"
+                :class="{ 'tool-toggle--active': normalizedToolOptions[tool.key] }"
                 :title="tool.title"
-                :aria-pressed="toolOptions[tool.key] ? 'true' : 'false'"
+                :aria-pressed="normalizedToolOptions[tool.key] ? 'true' : 'false'"
                 @click="toggleTool(tool.key)"
               >
                 <span class="tool-toggle__icon">{{ tool.icon }}</span>
@@ -47,19 +58,13 @@
         <span>Enter 发送，Shift + Enter 换行</span>
         <span>{{ statusText }}</span>
       </div>
-
-      <div v-if="pendingAttachments.length" class="pending-files">
-        <span class="pending-files__label">待发送附件：</span>
-        <span v-for="attachment in pendingAttachments" :key="attachment.id" class="attachment-chip">
-          {{ attachment.name }}
-        </span>
-      </div>
     </div>
   </footer>
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import AttachmentCard from "@/components/workspace/AttachmentCard.vue";
 
 const props = defineProps({
   modelValue: {
@@ -85,7 +90,7 @@ const props = defineProps({
   toolOptions: {
     type: Object,
     default: () => ({
-      useTools: false,
+      useTools: true,
       useWebSearch: false,
       useStructuredOutput: false,
       useHybridRetrieval: true,
@@ -94,39 +99,29 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["update:modelValue", "update:toolOptions", "attach", "send"]);
+const emit = defineEmits(["update:modelValue", "update:toolOptions", "attach", "send", "remove-attachment"]);
 
 const composerRef = ref(null);
+
+const normalizedToolOptions = computed(() => ({
+  ...props.toolOptions,
+  useTools: true,
+  useHybridRetrieval: true,
+  useImageVision: true
+}));
+
 const toolButtons = [
-  {
-    key: "useTools",
-    label: "工具",
-    icon: "T",
-    title: "启用工具调用能力"
-  },
   {
     key: "useWebSearch",
     label: "联网",
     icon: "W",
-    title: "启用网页搜索和实时信息获取"
+    title: "启用网页搜索与实时信息补充"
   },
   {
     key: "useStructuredOutput",
     label: "结构化",
     icon: "{}",
-    title: "要求模型返回 JSON 结构化结果"
-  },
-  {
-    key: "useHybridRetrieval",
-    label: "混合检索",
-    icon: "R",
-    title: "启用关键词、向量和 rerank 混合检索"
-  },
-  {
-    key: "useImageVision",
-    label: "识图",
-    icon: "I",
-    title: "将图片附件转为可供模型识别的视觉输入"
+    title: "要求模型输出更规整的结构化结果"
   }
 ];
 
@@ -146,16 +141,10 @@ function handleInput(event) {
 }
 
 function toggleTool(key) {
-  const next = {
-    ...props.toolOptions,
+  emit("update:toolOptions", {
+    ...normalizedToolOptions.value,
     [key]: !props.toolOptions[key]
-  };
-
-  if (key === "useWebSearch" && next.useWebSearch) {
-    next.useTools = true;
-  }
-
-  emit("update:toolOptions", next);
+  });
 }
 
 watch(
@@ -202,6 +191,12 @@ defineExpose({
   border-radius: 24px;
   background: var(--bg-surface);
   box-shadow: var(--shadow-card);
+}
+
+.pending-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
 .composer-attach {
@@ -336,30 +331,6 @@ defineExpose({
   font-weight: 700;
 }
 
-.pending-files {
-  margin-top: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pending-files__label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  align-self: center;
-}
-
-.attachment-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--brand-blue-light);
-  color: var(--brand-blue);
-  font-size: 12px;
-}
-
 button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
@@ -443,13 +414,7 @@ button:disabled {
   }
 
   .pending-files {
-    margin-top: 8px;
-    gap: 6px;
-  }
-
-  .attachment-chip {
-    padding: 3px 8px;
-    font-size: 11px;
+    gap: 10px;
   }
 }
 </style>
