@@ -19,7 +19,6 @@ const showLaunchAnimation = ref(true);
 <style scoped>
 .app-shell {
   position: relative;
-  height: 100%;
   min-height: 100vh;
   isolation: isolate;
 }
@@ -27,7 +26,6 @@ const showLaunchAnimation = ref(true);
 .app-shell__content {
   position: relative;
   z-index: 1;
-  height: 100%;
   min-height: 100vh;
 }
 </style>

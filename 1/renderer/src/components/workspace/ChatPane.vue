@@ -27,19 +27,6 @@
 
             <div class="message-thread__body">
               <div
-                v-if="message.attachments?.length"
-                class="message-attachments"
-                :class="{ 'message-attachments--user': message.role === 'user' }"
-              >
-                <AttachmentCard
-                  v-for="attachment in message.attachments"
-                  :key="attachment.id"
-                  :attachment="attachment"
-                  variant="message"
-                />
-              </div>
-
-              <div
                 class="message-bubble markdown-content"
                 :class="message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'"
                 v-html="renderMessageContent(message.content)"
@@ -74,14 +61,15 @@
         </div>
       </template>
 
-      <div v-else-if="!workspaceLoading" class="empty-block">暂无消息，输入学习任务或上传附件开始对话。</div>
+      <div v-else-if="!workspaceLoading" class="empty-block">
+        暂无消息，输入学习任务或上传资料开始对话。
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from "vue";
-import AttachmentCard from "@/components/workspace/AttachmentCard.vue";
 
 defineProps({
   quickPrompts: {
@@ -208,17 +196,6 @@ defineExpose({
   max-width: min(768px, 100%);
 }
 
-.message-attachments {
-  margin-bottom: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.message-attachments--user {
-  justify-content: flex-end;
-}
-
 .message-avatar {
   width: 40px;
   height: 40px;
@@ -321,6 +298,7 @@ defineExpose({
   border-radius: 999px;
 }
 
+/* ---- Markdown 内容样式（compat with marked output） ---- */
 .markdown-content :deep(p),
 .markdown-content :deep(ul),
 .markdown-content :deep(ol),
@@ -397,6 +375,7 @@ defineExpose({
   border-radius: 0;
 }
 
+/* ---- 表格样式 ---- */
 .markdown-content :deep(table) {
   width: 100%;
   border-collapse: collapse;
@@ -428,6 +407,7 @@ defineExpose({
   text-decoration: underline;
 }
 
+/* ---- KaTeX 公式 ---- */
 .markdown-content :deep(.katex) {
   color: var(--katex-color);
 }
@@ -437,6 +417,7 @@ defineExpose({
   overflow-x: auto;
 }
 
+/* ---- 引用块 ---- */
 .markdown-content :deep(.citation-block) {
   margin-top: 12px;
   padding: 12px 16px;
@@ -476,26 +457,6 @@ defineExpose({
   .message-list {
     padding-left: 20px;
     padding-right: 20px;
-  }
-}
-
-@media (max-height: 920px) {
-  .quick-prompts {
-    padding-top: 16px;
-    padding-bottom: 8px;
-    gap: 10px;
-  }
-
-  .quick-chip {
-    padding: 8px 14px;
-    font-size: 13px;
-  }
-
-  .message-list {
-    padding-top: 4px;
-    padding-bottom: 128px;
-    scroll-padding-bottom: 128px;
-    gap: 18px;
   }
 }
 </style>

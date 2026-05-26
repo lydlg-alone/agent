@@ -7,19 +7,6 @@
       </div>
 
       <div class="page-actions">
-        <div class="url-import">
-          <input
-            :value="urlValue"
-            type="url"
-            class="url-import__input"
-            placeholder="粘贴网页 URL"
-            @input="$emit('update:urlValue', $event.target.value.trim())"
-            @keydown.enter.prevent="$emit('import-url')"
-          />
-          <button type="button" class="secondary-button" :disabled="importing || !urlValue" @click="$emit('import-url')">
-            导入 URL
-          </button>
-        </div>
         <button type="button" class="primary-button" :disabled="importing" @click="$emit('import')">
           导入本地文档
         </button>
@@ -98,10 +85,6 @@ defineProps({
     type: String,
     default: ""
   },
-  urlValue: {
-    type: String,
-    default: ""
-  },
   summaryText: {
     type: String,
     default: ""
@@ -128,7 +111,7 @@ defineProps({
   }
 });
 
-defineEmits(["update:search", "update:urlValue", "import", "import-url", "clear", "delete"]);
+defineEmits(["update:search", "import", "clear", "delete"]);
 </script>
 
 <style scoped>
@@ -155,27 +138,7 @@ defineEmits(["update:search", "update:urlValue", "import", "import-url", "clear"
 
 .page-actions {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
-}
-
-.url-import {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.url-import__input {
-  width: min(320px, 42vw);
-  height: 40px;
-  border: 1px solid var(--border-input);
-  border-radius: 8px;
-  background: var(--bg-input);
-  padding: 0 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
 }
 
 .primary-button,
@@ -412,16 +375,10 @@ button:disabled {
 
 @media (max-width: 900px) {
   .page-header,
-  .page-actions,
-  .url-import,
   .toolbar-card,
   .document-card__meta {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .url-import__input {
-    width: 100%;
   }
 
   .stats-grid {

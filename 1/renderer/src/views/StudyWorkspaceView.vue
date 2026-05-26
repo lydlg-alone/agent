@@ -87,14 +87,11 @@
             <ComposerPanel
               ref="composerPanelRef"
               v-model="composerText"
-              :tool-options="toolOptions"
               :loading-send="loading.send"
               :loading-upload="loading.upload"
               :status-text="chatStatusText"
               :pending-attachments="pendingAttachments"
-              @update:tool-options="Object.assign(toolOptions, $event)"
               @attach="triggerChatFilePicker"
-              @remove-attachment="handleRemovePendingAttachment"
               @send="handleSendMessage"
             />
           </div>
@@ -106,7 +103,6 @@
       <section class="page-view page-view--standard" :class="{ active: currentPage === 'kb' }">
         <KnowledgeList
           v-model:search="knowledgeSearch"
-          v-model:url-value="knowledgeUrl"
           :stats="knowledgeStats"
           :summary-text="knowledgeSummaryText"
           :documents="filteredKnowledgeDocuments"
@@ -115,7 +111,6 @@
           :format-size="formatSize"
           :format-date="formatDate"
           @import="triggerKnowledgeFilePicker"
-          @import-url="handleImportKnowledgeUrl"
           @clear="handleClearKnowledge"
           @delete="handleDeleteKnowledgeDocument"
         />
@@ -199,7 +194,7 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import ChatPane from "@/components/workspace/ChatPane.vue";
 import ChatHistoryPanel from "@/components/workspace/ChatHistoryPanel.vue";
 import ComposerPanel from "@/components/workspace/ComposerPanel.vue";
@@ -228,10 +223,8 @@ import {
   fetchRuntimeSettings,
   fetchWorkspace,
   importKnowledgeFiles,
-  importKnowledgeUrl,
   importModelConfig,
   renameChatSession,
-  removeChatAttachment,
   saveRuntimeSettings,
   sendChatMessage,
   streamChatMessage,
@@ -318,7 +311,6 @@ const settingsFormRef = ref(null);
 const configImportInputRef = ref(null);
 const composerText = ref("");
 const knowledgeSearch = ref("");
-const knowledgeUrl = ref("");
 const switchingAgentId = ref("");
 let activeStreamAbortController = null;
 
@@ -351,13 +343,6 @@ const providerTemplates = ref([]);
 const recentSuccessfulModels = ref([]);
 const connectionHistory = ref([]);
 const availableRemoteModels = ref([]);
-const toolOptions = reactive({
-  useTools: true,
-  useWebSearch: false,
-  useStructuredOutput: false,
-  useHybridRetrieval: true,
-  useImageVision: true
-});
 
 const activeAgent = computed(() => workspace.activeAgent);
 const sessionAttachments = computed(() => workspace.activeSession?.attachments || []);
@@ -652,26 +637,8 @@ async function handleRenameSession(session) {
     return;
   }
 
-  let title = "";
-  try {
-    const result = await ElMessageBox.prompt("请输入新的会话名称", "重命名会话", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      inputValue: session.title || "新建对话",
-      inputPlaceholder: "请输入新的会话名称",
-      inputValidator: (value) => {
-        const normalized = String(value || "").trim();
-        if (!normalized) {
-          return "会话名称不能为空";
-        }
-        if (normalized.length > 120) {
-          return "会话名称不能超过 120 个字符";
-        }
-        return true;
-      }
-    });
-    title = result.value;
-  } catch {
+  const title = window.prompt("请输入新的会话名称", session.title || "新建对话");
+  if (title === null) {
     return;
   }
 
@@ -706,13 +673,8 @@ async function handleDeleteSession(session) {
     return;
   }
 
-  try {
-    await ElMessageBox.confirm(`确认删除会话“${session.title || "新建对话"}”吗？`, "删除会话", {
-      confirmButtonText: "删除",
-      cancelButtonText: "取消",
-      type: "warning"
-    });
-  } catch {
+  const confirmed = window.confirm(`确认删除会话“${session.title || "新建对话"}”吗？`);
+  if (!confirmed) {
     return;
   }
 
@@ -780,8 +742,7 @@ async function handleSendMessage() {
     const payload = {
       sessionId,
       content: composerText.value.trim() || "请结合我刚上传的资料给出分析。",
-      attachmentIds: pendingAttachments.value.map((item) => item.id),
-      ...toolOptions
+      attachmentIds: pendingAttachments.value.map((item) => item.id)
     };
 
     composerText.value = "";
@@ -884,34 +845,6 @@ async function handleChatFileChange(event) {
   }
 }
 
-async function handleRemovePendingAttachment(attachment) {
-  const attachmentId = attachment?.id;
-  if (!attachmentId) {
-    return;
-  }
-
-  loading.upload = true;
-  try {
-    const result = await removeChatAttachment(attachmentId);
-    pendingAttachments.value = pendingAttachments.value.filter((item) => item.id !== attachmentId);
-
-    if (workspace.activeSession?.id === result.sessionId) {
-      workspace.activeSession = {
-        ...workspace.activeSession,
-        updatedAt: result.updatedAt || workspace.activeSession.updatedAt,
-        attachments: result.attachments || workspace.activeSession.attachments || []
-      };
-      syncSessionSummary(workspace.activeSession);
-    }
-
-    ElMessage.success("附件已移除");
-  } catch (error) {
-    ElMessage.error(getErrorMessage(error, "移除附件失败"));
-  } finally {
-    loading.upload = false;
-  }
-}
-
 async function handleKnowledgeFileChange(event) {
   const files = Array.from(event.target.files || []);
   event.target.value = "";
@@ -944,26 +877,6 @@ async function handleKnowledgeFileChange(event) {
     ElMessage.success(`已导入 ${files.length} 份知识文档`);
   } catch (error) {
     ElMessage.error(getErrorMessage(error, "导入知识文档失败"));
-  } finally {
-    loading.importing = false;
-  }
-}
-
-async function handleImportKnowledgeUrl() {
-  const url = knowledgeUrl.value.trim();
-  if (!url) {
-    ElMessage.warning("请先粘贴网页 URL");
-    return;
-  }
-
-  loading.importing = true;
-  try {
-    await importKnowledgeUrl({ url });
-    knowledgeUrl.value = "";
-    await refreshKnowledge();
-    ElMessage.success("网页已导入知识库");
-  } catch (error) {
-    ElMessage.error(getErrorMessage(error, "导入网页失败"));
   } finally {
     loading.importing = false;
   }
@@ -1205,8 +1118,7 @@ watch(currentPage, async (page) => {
 
 <style scoped>
 .study-shell {
-  height: 100%;
-  min-height: 0;
+  height: 100vh;
   display: flex;
   overflow: hidden;
   background: transparent;
@@ -1280,8 +1192,7 @@ watch(currentPage, async (page) => {
 
 .workspace-main {
   flex: 1;
-  height: 100%;
-  min-height: 0;
+  height: 100vh;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1296,18 +1207,17 @@ watch(currentPage, async (page) => {
 
 .page-view.active {
   display: flex;
-  min-height: 0;
 }
 
 .page-view--chat {
-  height: 100%;
+  height: 100vh;
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
 }
 
 .page-view--standard {
-  min-height: 100%;
+  min-height: 100vh;
   flex-direction: column;
   padding: 32px;
   overflow-y: auto;
@@ -1394,7 +1304,7 @@ watch(currentPage, async (page) => {
 
 .chat-layout {
   flex: 1;
-  height: 100%;
+  height: calc(100vh - 64px);
   min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 320px;
@@ -1608,18 +1518,6 @@ button:disabled {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-}
-
-@media (max-height: 920px) {
-  .top-bar {
-    min-height: 56px;
-    height: 56px;
-    padding: 0 24px;
-  }
-
-  .page-view--standard {
-    padding: 24px;
   }
 }
 </style>

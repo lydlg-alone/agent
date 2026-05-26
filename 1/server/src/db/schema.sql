@@ -136,7 +136,6 @@ CREATE TABLE IF NOT EXISTS chat_attachments (
   mime_type TEXT,
   size_bytes INTEGER DEFAULT 0,
   content_excerpt TEXT,
-  content_data TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
 );
@@ -161,7 +160,6 @@ CREATE TABLE IF NOT EXISTS document_chunks (
   source_name TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   content TEXT NOT NULL,
-  embedding_json TEXT,
   created_at TEXT NOT NULL
 );
 
