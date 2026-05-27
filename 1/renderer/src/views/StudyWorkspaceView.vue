@@ -1152,7 +1152,7 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border-radius: 18px;
   background: var(--bg-surface);
-  color: #d9e7ff;
+  color: var(--brand-blue);
   border: 1px solid var(--border-primary);
   box-shadow: var(--shadow-card);
 }
@@ -1166,7 +1166,7 @@ watch(currentPage, async (page) => {
   border: none;
   border-radius: 14px;
   background: transparent;
-  color: rgba(214, 229, 255, 0.82);
+  color: var(--text-nav);
   cursor: pointer;
   transition: 0.2s ease-in-out;
 }
@@ -1174,7 +1174,7 @@ watch(currentPage, async (page) => {
 .nav-button:hover,
 .nav-button--active {
   background: var(--bg-surface);
-  color: #f3f8ff;
+  color: var(--text-nav-active);
   box-shadow: var(--shadow-card);
 }
 
@@ -1286,13 +1286,13 @@ watch(currentPage, async (page) => {
   justify-content: center;
   border: none;
   background: transparent;
-  color: #c4d3ea;
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .clear-button:hover {
-  color: #f3f8ff;
+  color: var(--brand-blue);
 }
 
 .action-icon {
@@ -1369,7 +1369,7 @@ watch(currentPage, async (page) => {
 }
 
 .market-card--active {
-  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.8) inset;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.42) inset;
 }
 
 .market-card__top {
@@ -1392,18 +1392,18 @@ watch(currentPage, async (page) => {
 }
 
 .market-card__icon--blue {
-  background: var(--brand-blue-border);
-  color: #eef5ff;
+  background: var(--brand-blue-light);
+  color: var(--brand-blue);
 }
 
 .market-card__icon--orange {
-  background: rgba(120, 74, 27, 0.28);
-  color: #f4b26b;
+  background: rgba(251, 191, 36, 0.16);
+  color: #b7791f;
 }
 
 .market-card__icon--emerald {
-  background: rgba(26, 94, 76, 0.28);
-  color: #64d5b0;
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--color-success);
 }
 
 .market-card__badge {
@@ -1415,7 +1415,7 @@ watch(currentPage, async (page) => {
 }
 
 .market-card__badge--active {
-  background: var(--brand-blue-border);
+  background: var(--brand-blue-light);
   color: var(--color-info);
 }
 

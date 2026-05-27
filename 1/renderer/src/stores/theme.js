@@ -5,17 +5,17 @@ const STORAGE_KEY = "ai-study-theme-mode";
 function readStoredMode() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") {
+    if (stored === "glacier" || stored === "light" || stored === "dark" || stored === "system") {
       return stored;
     }
   } catch {
-    // localStorage unavailable; fall back to dark
+    // localStorage unavailable; fall back to glacier
   }
-  return "dark";
+  return "glacier";
 }
 
 function resolveMode(mode) {
-  return "dark";
+  return "glacier";
 }
 
 export const useThemeStore = defineStore("theme", {
@@ -38,7 +38,7 @@ export const useThemeStore = defineStore("theme", {
     },
 
     setMode(nextMode) {
-      if (!["light", "dark", "system"].includes(nextMode)) {
+      if (!["glacier", "light", "dark", "system"].includes(nextMode)) {
         return;
       }
       this.mode = nextMode;
@@ -51,7 +51,7 @@ export const useThemeStore = defineStore("theme", {
     },
 
     toggle() {
-      this.setMode(this.resolved === "dark" ? "light" : "dark");
+      this.setMode("glacier");
     },
 
     init() {
