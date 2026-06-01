@@ -16,7 +16,7 @@
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:server\" \"npm:dev:electron\"",
     "dev:renderer": "vite --config vite.config.js",
     "dev:server": "node server/src/index.js",
-    "dev:electron": "wait-on tcp:5173 tcp:3001 && electron .",
+    "dev:electron": "node scripts/dev-electron.mjs",
     "build": "vite build --config vite.config.js",
     "preview": "vite preview --config vite.config.js",
     "test": "node --test"

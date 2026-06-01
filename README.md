@@ -1,6 +1,6 @@
 # 基于大模型的智能体学习桌面应用
 
-这是一个基于 `Electron + Vue 3 + Express + SQLite` 的本地桌面学习软件。项目围绕"学习工作区"展开，支持 AI 聊天、历史会话、知识库导入、检索增强回答、智能体切换，以及外部模型配置。
+这是一个基于 `Electron + Vue 3 + Express + SQLite` 的本地桌面学习软件。项目围绕学习工作区展开，支持 AI 聊天、历史会话、知识库导入、检索增强回答、智能体切换，以及外部模型配置。
 
 ## 当前能力
 
@@ -13,7 +13,7 @@
 - 检索增强：上传资料后按分块建立索引，聊天时自动召回相关片段
 - 引用展示：聊天回答可携带来源文档信息
 - 智能体切换：工作区支持切换当前学习智能体
-- 运行时配置：从系统"文档"目录读取和保存 API 配置
+- 运行时配置：从系统“文档”目录读取和保存 API 配置
 - 配置实时刷新：外部修改配置文件后，页面可自动同步
 - 学习仪表盘：真实数据统计（会话/消息/文档/练习趋势），ECharts 可视化图表
 - 学习工作流：诊断、计划、资源生成、练习、反馈评估（LLM 驱动）
@@ -43,6 +43,7 @@
 │  │  │  ├─ utils/                 markdownRenderer / workspaceFormatters
 │  │  │  └─ views/                 页面（含 AnalyticsView 仪表盘）
 │  │  └─ index.html
+│  ├─ scripts/                  项目内部检查与启动辅助脚本
 │  ├─ server/                   Express 后端
 │  │  ├─ src/
 │  │  │  ├─ routes/               HTTP 路由（含 analytics）
@@ -54,19 +55,42 @@
 │  │  └─ test/                    集成测试
 │  └─ package.json
 ├─ 前端设计/                     设计稿与原始静态页面
+├─ start-project.bat            根目录开发启动脚本
+├─ setup-new-machine.bat        根目录环境部署脚本
 ├─ README.md
 ├─ API文档.md
 ├─ 维护文档.md
 └─ 详细技术说明文档.md
 ```
 
-## 启动方式
+## 快速开始
 
-在项目应用目录执行：
+首次在新机器上部署：
+
+```powershell
+cd "E:\基于Deepseek的智能体学习软件"
+.\setup-new-machine.bat
+```
+
+日常开发启动：
+
+```powershell
+cd "E:\基于Deepseek的智能体学习软件"
+.\start-project.bat
+```
+
+说明：
+
+- `setup-new-machine.bat` 会进入 `1\` 目录执行依赖安装、环境检查和构建验证
+- `start-project.bat` 会进入 `1\` 目录并启动前端、后端和 Electron
+- 启动脚本会清理 `ELECTRON_RUN_AS_NODE`，避免 Electron 被错误当成普通 Node 进程运行
+
+## 手动命令
+
+如果需要手动执行命令，请进入应用目录：
 
 ```powershell
 cd "E:\基于Deepseek的智能体学习软件\1"
-npm install
 npm run dev
 ```
 
@@ -79,12 +103,12 @@ npm test
 
 默认端口：
 
-- 前端开发服务器：`5173`
-- 后端接口服务：`3001`
+- 前端开发服务器：`127.0.0.1:5173`
+- 后端接口服务：`127.0.0.1:3001`
 
 ## 配置与数据位置
 
-运行时 API 配置不保存在项目目录内，而是保存在当前系统用户的"文档"目录：
+运行时 API 配置不保存在项目目录内，而是保存在当前系统用户的“文档”目录：
 
 ```text
 文档\agent API\runtime-config.json
@@ -92,7 +116,7 @@ npm test
 
 说明：
 
-- Windows 下会优先自动读取系统真实"文档"目录
+- Windows 下会优先自动读取系统真实“文档”目录
 - `API Key` 采用当前用户上下文保护，不再明文保存
 - 本地数据库默认位于 `1/server/data/app.db`
 

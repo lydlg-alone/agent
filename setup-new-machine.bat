@@ -11,14 +11,20 @@ echo AI Learning Desktop - New Machine Setup
 echo ==========================================
 echo.
 
-echo [1/5] Checking project directory...
+echo [1/6] Checking project directory...
 if not exist "%APP_DIR%\package.json" (
   echo [ERROR] Could not find "%APP_DIR%\package.json"
   echo Make sure this script stays in the project root directory.
   exit /b 1
 )
 
-echo [2/5] Checking Node.js and npm...
+if not exist "%ROOT_DIR%\start-project.bat" (
+  echo [WARN] Root startup script was not found: "%ROOT_DIR%\start-project.bat"
+  echo You can still continue, but daily startup from the root directory will be unavailable.
+  echo.
+)
+
+echo [2/6] Checking Node.js and npm...
 where node >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] Node.js was not found.
@@ -45,21 +51,26 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/5] Installing project dependencies...
+echo [3/6] Installing project dependencies...
 call npm run setup
 if errorlevel 1 goto :setup_failed
 echo.
 
-echo [4/5] Verifying local environment...
+echo [4/6] Verifying local environment...
 call npm run check:env
 if errorlevel 1 goto :setup_failed
 echo.
 
-echo [5/5] Setup completed successfully.
+echo [5/6] Verifying production build...
+call npm run build
+if errorlevel 1 goto :setup_failed
+echo.
+
+echo [6/6] Setup completed successfully.
 echo.
 echo You can now start the project with:
-echo   cd /d "%APP_DIR%"
-echo   npm run dev
+echo   cd /d "%ROOT_DIR%"
+echo   start-project.bat
 echo.
 goto :done
 
@@ -70,6 +81,7 @@ echo Common fixes:
 echo   1. Make sure your network can access the npm registry.
 echo   2. Re-run this script as a normal user after closing terminal tools that are locking node_modules.
 echo   3. If better-sqlite3 fails to install, verify Node.js version matches the project requirement.
+echo   4. If the build fails, check whether Electron, Vite, and native dependencies were installed completely.
 popd >nul
 exit /b 1
 
