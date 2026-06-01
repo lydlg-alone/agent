@@ -81,7 +81,7 @@ async function handleLogin() {
   errorMsg.value = "";
   try {
     await userStore.login(name.value);
-    router.replace({ name: "dashboard-home" });
+    router.replace({ name: "dashboard-chat" });
   } catch (err) {
     errorMsg.value = err.message;
   } finally {

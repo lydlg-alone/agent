@@ -7,6 +7,12 @@ export const api = axios.create({
   timeout: 15000
 });
 
+function buildQuery(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+}
+
 export async function fetchWorkspace() {
   const { data } = await api.get("/chat/workspace");
   return data;
@@ -59,10 +65,10 @@ export async function streamChatMessage(payload, handlers = {}) {
     const text = await response.text();
     try {
       const parsed = JSON.parse(text);
-      throw new Error(parsed.message || "流式聊天请求失败。");
+      throw new Error(parsed.message || "Streaming chat request failed.");
     } catch (error) {
       if (error instanceof SyntaxError) {
-        throw new Error(text || "流式聊天请求失败。");
+        throw new Error(text || "Streaming chat request failed.");
       }
       throw error;
     }
@@ -70,7 +76,7 @@ export async function streamChatMessage(payload, handlers = {}) {
 
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error("当前环境不支持流式响应读取。");
+    throw new Error("The current environment does not support stream reading.");
   }
 
   const decoder = new TextDecoder();
@@ -87,21 +93,21 @@ export async function streamChatMessage(payload, handlers = {}) {
       return;
     }
 
-    const payload = JSON.parse(data);
-    if (payload.type === "start") {
-      handlers.onStart?.(payload);
+    const parsed = JSON.parse(data);
+    if (parsed.type === "start") {
+      handlers.onStart?.(parsed);
       return;
     }
-    if (payload.type === "delta") {
-      handlers.onDelta?.(payload);
+    if (parsed.type === "delta") {
+      handlers.onDelta?.(parsed);
       return;
     }
-    if (payload.type === "done") {
-      handlers.onDone?.(payload);
+    if (parsed.type === "done") {
+      handlers.onDone?.(parsed);
       return;
     }
-    if (payload.type === "error") {
-      throw new Error(payload.message || "流式聊天请求失败。");
+    if (parsed.type === "error") {
+      throw new Error(parsed.message || "Streaming chat request failed.");
     }
   };
 
@@ -246,5 +252,161 @@ export async function importModelConfig(config) {
 
 export async function fetchAnalytics() {
   const { data } = await api.get("/analytics/overview");
+  return data;
+}
+
+export async function fetchStudySets(params = {}) {
+  const { data } = await api.get("/study-sets", {
+    params: buildQuery(params)
+  });
+  return data;
+}
+
+export async function createStudySet(payload) {
+  const { data } = await api.post("/study-sets", payload);
+  return data;
+}
+
+export async function fetchStudySetDetail(studySetId) {
+  const { data } = await api.get(`/study-sets/${studySetId}`);
+  return data;
+}
+
+export async function updateStudySet(studySetId, payload) {
+  const { data } = await api.put(`/study-sets/${studySetId}`, payload);
+  return data;
+}
+
+export async function deleteStudySet(studySetId) {
+  const { data } = await api.delete(`/study-sets/${studySetId}`);
+  return data;
+}
+
+export async function fetchFlashcards(studySetId, params = {}) {
+  const { data } = await api.get(`/study-sets/${studySetId}/flashcards`, {
+    params: buildQuery(params)
+  });
+  return data;
+}
+
+export async function createFlashcard(studySetId, payload) {
+  const { data } = await api.post(`/study-sets/${studySetId}/flashcards`, payload);
+  return data;
+}
+
+export async function updateFlashcard(flashcardId, payload) {
+  const { data } = await api.put(`/flashcards/${flashcardId}`, payload);
+  return data;
+}
+
+export async function deleteFlashcard(flashcardId) {
+  const { data } = await api.delete(`/flashcards/${flashcardId}`);
+  return data;
+}
+
+export async function reviewFlashcard(flashcardId, quality) {
+  const { data } = await api.post(`/flashcards/${flashcardId}/review`, { quality });
+  return data;
+}
+
+export async function fetchStudySetQuizzes(studySetId) {
+  const { data } = await api.get(`/quizzes/study-set/${studySetId}`);
+  return data;
+}
+
+export async function fetchQuizDetail(quizId) {
+  const { data } = await api.get(`/quizzes/${quizId}`);
+  return data;
+}
+
+export async function generateQuiz(payload) {
+  const { data } = await api.post("/quizzes/generate", payload);
+  return data;
+}
+
+export async function submitQuizAttempt(quizId, payload) {
+  const { data } = await api.post(`/quizzes/${quizId}/attempts`, payload);
+  return data;
+}
+
+export async function retryQuiz(quizId, payload) {
+  const { data } = await api.post(`/quizzes/${quizId}/retry`, payload);
+  return data;
+}
+
+export async function fetchQuizAttempts(quizId) {
+  const { data } = await api.get(`/quizzes/${quizId}/attempts`);
+  return data;
+}
+
+export async function fetchAllNotes() {
+  const { data } = await api.get("/notes");
+  return data;
+}
+
+export async function fetchNoteDetail(noteId) {
+  const { data } = await api.get(`/notes/${noteId}`);
+  return data;
+}
+
+export async function fetchStudySetNotes(studySetId) {
+  const { data } = await api.get(`/study-sets/${studySetId}/notes`);
+  return data;
+}
+
+export async function createStudySetNote(studySetId, payload) {
+  const { data } = await api.post(`/study-sets/${studySetId}/notes`, payload);
+  return data;
+}
+
+export async function updateStudySetNote(noteId, payload) {
+  const { data } = await api.put(`/notes/${noteId}`, payload);
+  return data;
+}
+
+export async function deleteStudySetNote(noteId) {
+  const { data } = await api.delete(`/notes/${noteId}`);
+  return data;
+}
+
+export async function generateNote(payload) {
+  const { data } = await api.post("/notes/generate", payload);
+  return data;
+}
+
+export async function fetchStudySetDocuments(studySetId) {
+  const { data } = await api.get(`/study-sets/${studySetId}/documents`);
+  return data;
+}
+
+export async function createStudySetDocument(studySetId, payload) {
+  const { data } = await api.post(`/study-sets/${studySetId}/documents`, payload);
+  return data;
+}
+
+export async function fetchStudySetSources(studySetId, params = {}) {
+  const { data } = await api.get(`/study-sets/${studySetId}/sources`, {
+    params: buildQuery(params)
+  });
+  return data;
+}
+
+export async function fetchLearningPlans() {
+  const { data } = await api.get("/learning-plans");
+  return data;
+}
+
+export async function fetchLearningPlanDetail(planId) {
+  const { data } = await api.get(`/learning-plans/${planId}`);
+  return data;
+}
+
+export async function updateLearningPlan(planId, payload) {
+  const { data } = await api.patch(`/learning-plans/${planId}`, payload);
+  return data;
+}
+
+export async function deleteLearningPlan(planId) {
+  const { data } = await api.delete(`/learning-plans/${planId}`);
   return data;
 }

@@ -112,7 +112,7 @@ async function handleRegister() {
       level: level.value || undefined,
       preference: preference.value || undefined
     });
-    router.replace({ name: "dashboard-home" });
+    router.replace({ name: "dashboard-chat" });
   } catch (err) {
     errorMsg.value = err.message;
   } finally {

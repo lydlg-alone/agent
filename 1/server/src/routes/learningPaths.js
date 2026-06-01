@@ -1,26 +1,49 @@
 import { getDb } from "../config/database.js";
 
+function selectPlanFields() {
+  return `
+    SELECT lp.*,
+           ss.title AS study_set_title
+    FROM learning_plans lp
+    LEFT JOIN study_sets ss ON ss.id = lp.study_set_id
+  `;
+}
+
+function mapPlan(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    studySetId: row.study_set_id || "",
+    studySetTitle: row.study_set_title || ""
+  };
+}
+
 export function registerLearningPathRoutes(app) {
-  // GET /api/learning-plans — list all
   app.get("/api/learning-plans", (_req, res) => {
     const db = getDb();
-    const plans = db.prepare(
-      "SELECT * FROM learning_plans ORDER BY created_at DESC"
-    ).all();
+    const plans = db
+      .prepare(`${selectPlanFields()} ORDER BY datetime(lp.created_at) DESC`)
+      .all()
+      .map(mapPlan);
     res.json(plans);
   });
 
-  // GET /api/learning-plans/:id — detail
   app.get("/api/learning-plans/:id", (req, res) => {
     const db = getDb();
-    const plan = db.prepare("SELECT * FROM learning_plans WHERE id = ?").get(req.params.id);
+    const plan = mapPlan(
+      db.prepare(`${selectPlanFields()} WHERE lp.id = ?`).get(req.params.id)
+    );
+
     if (!plan) {
       return res.status(404).json({ code: "NOT_FOUND", message: "学习计划不存在" });
     }
+
     res.json(plan);
   });
 
-  // PATCH /api/learning-plans/:id — update progress
   app.patch("/api/learning-plans/:id", (req, res) => {
     const db = getDb();
     const existing = db.prepare("SELECT * FROM learning_plans WHERE id = ?").get(req.params.id);
@@ -34,15 +57,13 @@ export function registerLearningPathRoutes(app) {
         .run(typeof stages_json === "string" ? stages_json : JSON.stringify(stages_json), req.params.id);
     }
     if (difficulty) {
-      db.prepare("UPDATE learning_plans SET difficulty = ? WHERE id = ?")
-        .run(difficulty, req.params.id);
+      db.prepare("UPDATE learning_plans SET difficulty = ? WHERE id = ?").run(difficulty, req.params.id);
     }
 
-    const plan = db.prepare("SELECT * FROM learning_plans WHERE id = ?").get(req.params.id);
+    const plan = mapPlan(db.prepare(`${selectPlanFields()} WHERE lp.id = ?`).get(req.params.id));
     res.json(plan);
   });
 
-  // DELETE /api/learning-plans/:id
   app.delete("/api/learning-plans/:id", (req, res) => {
     const db = getDb();
     const existing = db.prepare("SELECT * FROM learning_plans WHERE id = ?").get(req.params.id);

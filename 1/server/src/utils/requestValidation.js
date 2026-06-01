@@ -84,6 +84,18 @@ export function optionalBoolean(value, fieldName, options = {}) {
   throw createValidationError(`${fieldName}必须是布尔值。`);
 }
 
+export function optionalObject(value, fieldName, options = {}) {
+  if (value == null) {
+    return options.defaultValue ?? {};
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw createValidationError(`${fieldName}必须是对象。`);
+  }
+
+  return value;
+}
+
 export function requireArray(value, fieldName, options = {}) {
   if (!Array.isArray(value)) {
     throw createValidationError(`${fieldName}必须是数组。`);
@@ -102,5 +114,9 @@ export function optionalStringArray(value, fieldName, options = {}) {
   }
 
   const array = requireArray(value, fieldName, options);
-  return array.map((item, index) => requireString(item, `${fieldName}[${index}]`, { maxLength: options.itemMaxLength }));
+  return array.map((item, index) =>
+    requireString(item, `${fieldName}[${index}]`, {
+      maxLength: options.itemMaxLength
+    })
+  );
 }

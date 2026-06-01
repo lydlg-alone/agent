@@ -64,8 +64,10 @@ CREATE TABLE IF NOT EXISTS learning_plans (
   user_id TEXT,
   goal TEXT NOT NULL,
   difficulty TEXT NOT NULL,
+  study_set_id TEXT,
   stages_json TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (study_set_id) REFERENCES study_sets(id)
 );
 
 CREATE TABLE IF NOT EXISTS generated_resources (

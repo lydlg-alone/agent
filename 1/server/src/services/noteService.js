@@ -21,8 +21,9 @@ function getNoteRowById(noteId) {
   const db = getDb();
   const row = db
     .prepare(
-      `SELECT n.*, d.name AS source_document_name
+      `SELECT n.*, d.name AS source_document_name, s.title AS study_set_title
        FROM notes n
+       INNER JOIN study_sets s ON s.id = n.study_set_id
        LEFT JOIN knowledge_documents d ON d.id = n.source_document_id
        WHERE n.id = ?`
     )
@@ -48,6 +49,7 @@ function mapNote(row) {
     sourceType: row.source_type,
     sourceDocumentId: row.source_document_id || "",
     sourceDocumentName: row.source_document_name || "",
+    studySetTitle: row.study_set_title || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -68,8 +70,9 @@ export function listNotesByStudySet(studySetId) {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT n.*, d.name AS source_document_name
+      `SELECT n.*, d.name AS source_document_name, s.title AS study_set_title
        FROM notes n
+       INNER JOIN study_sets s ON s.id = n.study_set_id
        LEFT JOIN knowledge_documents d ON d.id = n.source_document_id
        WHERE n.study_set_id = ?
        ORDER BY n.is_pinned DESC, datetime(n.updated_at) DESC, datetime(n.created_at) DESC`
@@ -77,6 +80,25 @@ export function listNotesByStudySet(studySetId) {
     .all(studySetId);
 
   return rows.map(mapNote);
+}
+
+export function listAllNotes() {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT n.*, d.name AS source_document_name, s.title AS study_set_title
+       FROM notes n
+       INNER JOIN study_sets s ON s.id = n.study_set_id
+       LEFT JOIN knowledge_documents d ON d.id = n.source_document_id
+       ORDER BY n.is_pinned DESC, datetime(n.updated_at) DESC, datetime(n.created_at) DESC`
+    )
+    .all();
+
+  return rows.map(mapNote);
+}
+
+export function getNoteById(noteId) {
+  return mapNote(getNoteRowById(noteId));
 }
 
 export function createNote(studySetId, payload) {

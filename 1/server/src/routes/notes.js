@@ -1,4 +1,4 @@
-import { createNote, deleteNote, listNotesByStudySet, updateNote } from "../services/noteService.js";
+import { createNote, deleteNote, getNoteById, listAllNotes, listNotesByStudySet, updateNote } from "../services/noteService.js";
 import {
   defineObjectSchema,
   optionalBooleanField,
@@ -44,6 +44,14 @@ const generateNoteSchema = defineObjectSchema(
 );
 
 export function registerNoteRoutes(app) {
+  app.get("/api/notes", (_req, res) => {
+    res.json(listAllNotes());
+  });
+
+  app.get("/api/notes/:id", validateParams(noteIdParamsSchema), (req, res) => {
+    res.json(getNoteById(req.validated.params.id));
+  });
+
   app.get("/api/study-sets/:id/notes", validateParams(studySetIdParamsSchema), (req, res) => {
     res.json(listNotesByStudySet(req.validated.params.id));
   });
@@ -89,8 +97,6 @@ export function registerNoteRoutes(app) {
     const title = topic || `${studySet.title} - 学习笔记`;
     const content = `# ${title}\n\n> AI 生成笔记 · 来源类型：${sourceType}\n\n${prompt}\n\n---\n*此笔记由 AI 基于学习集内容自动生成，请核对关键信息的准确性。*`;
 
-    const { randomUUID } = await import("node:crypto");
-    const { createNote } = await import("../services/noteService.js");
     const note = createNote(studySetId, {
       title,
       content,

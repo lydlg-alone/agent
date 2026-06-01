@@ -1,16 +1,15 @@
 <template>
   <div class="public-layout">
     <header class="public-layout__header">
-      <RouterLink to="/" class="public-layout__brand">Studyield</RouterLink>
+      <RouterLink to="/dashboard/chat" class="public-layout__brand">Studyield</RouterLink>
 
       <nav class="public-layout__nav">
-        <RouterLink to="/">首页</RouterLink>
         <RouterLink to="/welcome">功能预览</RouterLink>
 
         <!-- Authed -->
         <template v-if="userStore.isLoggedIn">
           <span class="public-layout__user">{{ userStore.userName }}</span>
-          <RouterLink to="/dashboard/home" class="public-layout__nav-cta">控制台</RouterLink>
+          <RouterLink to="/dashboard/chat" class="public-layout__nav-cta">控制台</RouterLink>
         </template>
 
         <!-- Not authed -->

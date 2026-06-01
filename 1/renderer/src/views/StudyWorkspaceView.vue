@@ -1,6 +1,6 @@
 ﻿<template>
-  <div class="study-shell">
-    <nav class="side-nav">
+  <div class="study-shell" :class="{ 'study-shell--embedded': embedded }">
+    <nav v-if="!embedded" class="side-nav">
       <div class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" class="nav-icon nav-icon--brand">
           <path :d="brandIconPath" />
@@ -249,6 +249,17 @@ import {
   shouldReadAsText
 } from "@/utils/workspaceFormatters.js";
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  },
+  lockedPage: {
+    type: String,
+    default: ""
+  }
+});
+
 const brandIconPath =
   "M9.5 3.75c-2.35 0-4.25 1.9-4.25 4.25v1.03a3.25 3.25 0 0 0-.97 5.53A4.25 4.25 0 0 0 8.5 21h1.75A2 2 0 0 0 12 19.97A2 2 0 0 0 13.75 21h1.75a4.25 4.25 0 0 0 4.22-3.44a3.25 3.25 0 0 0-.97-5.53V8c0-2.35-1.9-4.25-4.25-4.25c-1.1 0-2.1.41-2.87 1.08A4.23 4.23 0 0 0 9.5 3.75ZM9 8.25c.41 0 .75.34.75.75v6a.75.75 0 0 1-1.5 0V9c0-.41.34-.75.75-.75Zm6 0c.41 0 .75.34.75.75v6a.75.75 0 0 1-1.5 0V9c0-.41.34-.75.75-.75ZM12 6.75c.41 0 .75.34.75.75v9a.75.75 0 0 1-1.5 0v-9c0-.41.34-.75.75-.75Z";
 
@@ -302,7 +313,7 @@ const {
   settingsStorageText
 } = storeToRefs(runtimeStore);
 
-const currentPage = ref("chat");
+const currentPage = ref(props.lockedPage || "chat");
 const chatPaneRef = ref(null);
 const composerPanelRef = ref(null);
 const chatFileInputRef = ref(null);
@@ -1103,6 +1114,16 @@ onMounted(() => {
   startRuntimeSettingsSubscription();
 });
 
+watch(
+  () => props.lockedPage,
+  (value) => {
+    if (value && currentPage.value !== value) {
+      currentPage.value = value;
+    }
+  },
+  { immediate: true }
+);
+
 watch(currentPage, async (page) => {
   if (page !== "settings") {
     return;
@@ -1123,6 +1144,10 @@ watch(currentPage, async (page) => {
   overflow: hidden;
   background: transparent;
   color: var(--text-primary);
+}
+
+.study-shell--embedded {
+  height: 100%;
 }
 
 .side-nav {
@@ -1198,6 +1223,11 @@ watch(currentPage, async (page) => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+.study-shell--embedded .workspace-main,
+.study-shell--embedded .page-view--chat {
+  height: 100%;
 }
 
 .page-view {

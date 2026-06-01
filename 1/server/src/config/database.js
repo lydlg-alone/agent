@@ -33,4 +33,10 @@ export function bootstrapDatabase() {
   } catch {
     // Column already exists
   }
+
+  try {
+    db.exec("ALTER TABLE learning_plans ADD COLUMN study_set_id TEXT REFERENCES study_sets(id)");
+  } catch {
+    // Column already exists
+  }
 }

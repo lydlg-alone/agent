@@ -1,52 +1,245 @@
-import { createId } from "../utils/id.js";
+import axios from "axios";
 import { getDb } from "../config/database.js";
+import { getCurrentModelConfig } from "./modelConfigService.js";
+import { listNotesByStudySet } from "./noteService.js";
+import { getRuntimeCredentials } from "./runtimeConfigService.js";
+import { getStudySetById } from "./studySetService.js";
+import { createId } from "../utils/id.js";
+
+function buildApiUrl(baseUrl, targetPath) {
+  return `${String(baseUrl || "").trim().replace(/\/+$/, "")}/${String(targetPath || "").replace(/^\/+/, "")}`;
+}
+
+function getModelRuntime() {
+  const runtime = getRuntimeCredentials();
+  const currentModel = getCurrentModelConfig();
+  const modelId = String(runtime.modelId || currentModel?.modelId || "").trim();
+
+  if (!runtime.baseUrl || !runtime.apiKey || !modelId) {
+    const error = new Error("请先在模型配置页面完成 API 地址、API Key 和模型 ID 配置，再生成学习路径。");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    baseUrl: runtime.baseUrl,
+    apiKey: runtime.apiKey,
+    modelId,
+    systemPrompt: String(runtime.systemPrompt || "").trim()
+  };
+}
+
+function summarizeNotes(studySetId) {
+  if (!studySetId) {
+    return [];
+  }
+
+  return listNotesByStudySet(studySetId)
+    .slice(0, 5)
+    .map((note) => ({
+      title: note.title,
+      content: String(note.content || "").replace(/\s+/g, " ").trim().slice(0, 280)
+    }))
+    .filter((note) => note.title || note.content);
+}
+
+function buildStudySetContext(studySetId) {
+  if (!studySetId) {
+    return null;
+  }
+
+  const studySet = getStudySetById(studySetId);
+  return {
+    studySet,
+    notes: summarizeNotes(studySetId)
+  };
+}
+
+function buildPlanningPrompt(payload, studySetContext) {
+  const tags = studySetContext?.studySet?.tags?.length ? studySetContext.studySet.tags.join("、") : "无";
+  const noteLines = (studySetContext?.notes || [])
+    .map((note, index) => `${index + 1}. ${note.title || "未命名笔记"}：${note.content || "无内容摘要"}`)
+    .join("\n");
+
+  return [
+    "你是学习路径规划助手。",
+    "请基于用户目标和学习集上下文，输出一个学习路径 JSON。",
+    "要求：",
+    "1. 仅返回 JSON，不要输出 Markdown、解释或额外文本。",
+    "2. JSON 结构必须是 {\"goal\":\"\",\"difficulty\":\"\",\"stages\":[...]}。",
+    "3. difficulty 只能是 beginner、intermediate、advanced 之一。",
+    "4. stages 必须是 4 到 8 个阶段的数组。",
+    "5. 每个阶段包含 title、description、duration、type、completed 字段。",
+    "6. completed 一律返回 false。",
+    "7. duration 用中文字符串表达，例如“2 天”或“90 分钟”。",
+    "",
+    `学习目标：${payload.goal}`,
+    `难度：${payload.difficulty}`,
+    studySetContext
+      ? [
+          `学习集标题：${studySetContext.studySet.title}`,
+          `学习集描述：${studySetContext.studySet.description || "无"}`,
+          `考试科目：${studySetContext.studySet.examSubject || "无"}`,
+          `标签：${tags}`,
+          noteLines ? `学习集笔记摘要：\n${noteLines}` : "学习集笔记摘要：无"
+        ].join("\n")
+      : "未选择学习集，请仅基于学习目标生成。"
+  ].join("\n");
+}
+
+function normalizeDifficulty(value) {
+  return ["beginner", "intermediate", "advanced"].includes(value) ? value : "intermediate";
+}
+
+function sanitizeStage(stage, index) {
+  return {
+    stage: index + 1,
+    title: String(stage?.title || `阶段 ${index + 1}`).trim(),
+    description: String(stage?.description || stage?.outcome || "").trim(),
+    duration: String(stage?.duration || "1 天").trim(),
+    type: String(stage?.type || "学习任务").trim(),
+    completed: false
+  };
+}
+
+function extractAssistantContent(data) {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === "string" && content.trim()) {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    const text = content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+        if (item?.type === "text") {
+          return item.text || "";
+        }
+        return "";
+      })
+      .join("")
+      .trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
+  return "";
+}
+
+function parsePlanPayload(rawText) {
+  const normalized = String(rawText || "")
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const match = normalized.match(/\{[\s\S]*\}/);
+  const jsonText = match ? match[0] : normalized;
+  const parsed = JSON.parse(jsonText);
+  const stages = Array.isArray(parsed?.stages) ? parsed.stages : [];
+
+  if (!stages.length) {
+    throw new Error("模型返回的学习路径不包含有效阶段。");
+  }
+
+  return {
+    goal: String(parsed.goal || "").trim(),
+    difficulty: normalizeDifficulty(String(parsed.difficulty || "").trim()),
+    stages: stages.slice(0, 8).map(sanitizeStage)
+  };
+}
+
+async function requestAiPlan(payload, studySetContext) {
+  const runtime = getModelRuntime();
+  const messages = [];
+
+  if (runtime.systemPrompt) {
+    messages.push({
+      role: "system",
+      content: runtime.systemPrompt
+    });
+  }
+
+  messages.push({
+    role: "system",
+    content: "你负责生成结构化学习路径，必须严格输出 JSON。"
+  });
+  messages.push({
+    role: "user",
+    content: buildPlanningPrompt(payload, studySetContext)
+  });
+
+  const response = await axios.post(
+    buildApiUrl(runtime.baseUrl, "/chat/completions"),
+    {
+      model: runtime.modelId,
+      messages,
+      temperature: 0.5
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${runtime.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      timeout: 60000
+    }
+  );
+
+  const content = extractAssistantContent(response.data);
+  if (!content) {
+    throw new Error("模型接口调用成功，但没有返回可解析的学习路径内容。");
+  }
+
+  return parsePlanPayload(content);
+}
 
 export function diagnose(payload) {
   return {
     id: createId("diag"),
     goal: payload.goal,
     level: payload.level || "中级",
-    weakPoints: [
-      "基础概念掌握不稳定",
-      "典型例题迁移能力偏弱",
-      "错题复盘频率不足"
-    ],
-    recommendedPath: [
-      "先完成基础概念梳理",
-      "再进行例题拆解练习",
-      "最后进入综合测试与错题回放"
-    ]
+    weakPoints: ["基础概念掌握不稳定", "典型例题迁移能力偏弱", "错题复盘频率不足"],
+    recommendedPath: ["先完成基础概念梳理", "再进行例题拆解练习", "最后进入综合测试与错题回放"]
   };
 }
 
-export function plan(payload) {
+export async function plan(payload) {
   const db = getDb();
-  const stages = [
-    { stage: 1, title: "基础概念学习", duration: "3 天", outcome: "理解核心术语与知识点结构" },
-    { stage: 2, title: "例题讲解", duration: "2 天", outcome: "掌握常见解题路径" },
-    { stage: 3, title: "专项练习", duration: "4 天", outcome: "按模块提升准确率" },
-    { stage: 4, title: "综合测试", duration: "2 天", outcome: "完成整体验证" },
-    { stage: 5, title: "错题复盘", duration: "1 天", outcome: "沉淀复盘卡片与学习建议" }
-  ];
-
+  const studySetId = String(payload.studySetId || "").trim();
+  const studySetContext = buildStudySetContext(studySetId);
+  const aiPlan = await requestAiPlan(payload, studySetContext);
   const record = {
     id: createId("plan"),
     user_id: payload.userId || null,
-    goal: payload.goal,
-    difficulty: payload.difficulty || "中等",
-    stages_json: JSON.stringify(stages),
+    goal: aiPlan.goal || payload.goal,
+    difficulty: aiPlan.difficulty || normalizeDifficulty(payload.difficulty),
+    study_set_id: studySetId || null,
+    stages_json: JSON.stringify(aiPlan.stages),
     created_at: new Date().toISOString()
   };
 
   db.prepare(
     `INSERT INTO learning_plans (
-      id, user_id, goal, difficulty, stages_json, created_at
+      id, user_id, goal, difficulty, study_set_id, stages_json, created_at
     ) VALUES (
-      @id, @user_id, @goal, @difficulty, @stages_json, @created_at
+      @id, @user_id, @goal, @difficulty, @study_set_id, @stages_json, @created_at
     )`
   ).run(record);
 
-  return { ...record, stages };
+  return {
+    ...record,
+    studySetId: record.study_set_id,
+    studySetTitle: studySetContext?.studySet?.title || "",
+    stages: aiPlan.stages
+  };
 }
 
 export function generateResource(payload) {

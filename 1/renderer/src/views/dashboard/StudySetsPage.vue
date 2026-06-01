@@ -3,7 +3,6 @@
     <header class="study-sets-page__header">
       <div>
         <h2>学习集</h2>
-        <p>阶段二到阶段五：已支持学习集 CRUD、闪卡、复习、测验，以及详情页的笔记/文档/来源管理。</p>
       </div>
 
       <div class="study-sets-page__header-actions">
@@ -43,11 +42,19 @@
       <el-table-column label="更新时间" min-width="170">
         <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="500" fixed="right">
+      <el-table-column label="操作" width="580" fixed="right">
         <template #default="{ row }">
           <el-button text @click="goFlashcards(row.id)">闪卡</el-button>
           <el-button text type="success" @click="goStudy(row.id)">复习</el-button>
           <el-button text type="warning" @click="goQuiz(row.id)">测验</el-button>
+          <el-button
+            text
+            type="primary"
+            :loading="importingStudySetId === row.id"
+            @click="triggerDocumentImport(row.id)"
+          >
+            导入文档
+          </el-button>
           <el-button text @click="viewDetail(row.id)">查看</el-button>
           <el-button text @click="openEditDialog(row)">编辑</el-button>
           <el-button text type="danger" @click="removeStudySet(row)">删除</el-button>
@@ -91,6 +98,7 @@
       </template>
     </el-dialog>
 
+    <input ref="documentFileInputRef" type="file" class="hidden-file-input" multiple @change="handleDocumentFileChange" />
   </section>
 </template>
 
@@ -99,13 +107,18 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { createStudySetDocument } from "@/services/api.js";
 import { useStudySetsStore } from "@/stores/studySets.js";
+import { readFileAsBase64, readFileAsText, shouldReadAsText } from "@/utils/workspaceFormatters.js";
 
 const router = useRouter();
 const store = useStudySetsStore();
 const { items, loading } = storeToRefs(store);
 
 const searchText = ref("");
+const importingStudySetId = ref("");
+const pendingImportStudySetId = ref("");
+const documentFileInputRef = ref(null);
 
 const dialog = reactive({
   visible: false,
@@ -230,6 +243,41 @@ function handleSearch() {
   loadStudySets();
 }
 
+function triggerDocumentImport(studySetId) {
+  pendingImportStudySetId.value = studySetId;
+  documentFileInputRef.value?.click();
+}
+
+async function handleDocumentFileChange(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = "";
+
+  if (!files.length || !pendingImportStudySetId.value) {
+    return;
+  }
+
+  importingStudySetId.value = pendingImportStudySetId.value;
+
+  try {
+    for (const file of files) {
+      const contentText = shouldReadAsText(file) ? await readFileAsText(file) : await readFileAsBase64(file);
+      await createStudySetDocument(pendingImportStudySetId.value, {
+        name: file.name,
+        sourceType: "upload",
+        mimeType: file.type || "application/octet-stream",
+        contentText
+      });
+    }
+
+    ElMessage.success(`已向学习集导入 ${files.length} 份文档`);
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || error?.message || "导入文档失败");
+  } finally {
+    importingStudySetId.value = "";
+    pendingImportStudySetId.value = "";
+  }
+}
+
 function formatDateTime(value) {
   if (!value) {
     return "-";
@@ -262,11 +310,6 @@ onMounted(loadStudySets);
   margin: 0;
 }
 
-.study-sets-page__header p {
-  margin: 8px 0 0;
-  color: var(--text-secondary);
-}
-
 .study-sets-page__header-actions {
   display: flex;
   align-items: center;
@@ -285,6 +328,10 @@ onMounted(loadStudySets);
 
 .muted {
   color: var(--text-tertiary);
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 @media (max-width: 1100px) {

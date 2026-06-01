@@ -1,6 +1,7 @@
 import {
   optionalBoolean,
   optionalNumber,
+  optionalObject,
   optionalString,
   optionalStringArray,
   requireArray,
@@ -35,6 +36,10 @@ export function optionalNumberField(label, options = {}) {
 
 export function optionalBooleanField(label, options = {}) {
   return (value) => optionalBoolean(value, label, options);
+}
+
+export function optionalObjectField(label, options = {}) {
+  return (value) => optionalObject(value, label, options);
 }
 
 export function stringArrayField(label, options = {}) {
