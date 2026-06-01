@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 学习智能体系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --main-blue: #005fb8;
+            --deep-blue: #004a8f;
+            --light-blue: #eef6ff;
+            --panel-border: #dce8f5;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background:
+                radial-gradient(circle at top right, rgba(0, 95, 184, 0.12), transparent 24%),
+                linear-gradient(135deg, #eef5ff 0%, #f7fbff 48%, #edf4ff 100%);
+            font-family: "Microsoft YaHei", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            color: #1f2937;
+        }
+
+        .nav-active {
+            background: #ffffff;
+            color: var(--main-blue);
+            box-shadow: 0 12px 24px rgba(0, 95, 184, 0.18);
+        }
+
+        .page-view {
+            display: none;
+            animation: fadeIn 0.22s ease-in-out;
+        }
+
+        .page-view.active {
+            display: flex;
+        }
+
+        .surface-card {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .chat-bubble-user {
+            background: linear-gradient(135deg, #005fb8, #0c78da);
+            color: #ffffff;
+            border-radius: 18px 4px 18px 18px;
+        }
+
+        .chat-bubble-assistant {
+            background: #ffffff;
+            border: 1px solid #dbe5f0;
+            border-radius: 4px 18px 18px 18px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #60a5fa;
+            animation: pulse 1.1s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 80%, 100% {
+                opacity: 0.35;
+                transform: translateY(0);
+            }
+            40% {
+                opacity: 1;
+                transform: translateY(-3px);
+            }
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+    <nav class="w-20 bg-[#004A8F] flex flex-col items-center py-8 text-blue-100 space-y-10 z-50">
+        <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#004A8F] shadow-lg mb-4">
+            <i class="fas fa-brain text-2xl"></i>
+        </div>
+        <button data-page="chat" class="nav-btn w-12 h-12 rounded-xl transition-all flex items-center justify-center nav-active" id="btn-chat" title="聊天">
+            <i class="fas fa-comment-alt text-xl"></i>
+        </button>
+        <button data-page="kb" class="nav-btn w-12 h-12 rounded-xl transition-all flex items-center justify-center hover:bg-white/10" id="btn-kb" title="知识库">
+            <i class="fas fa-book text-xl"></i>
+        </button>
+        <button data-page="market" class="nav-btn w-12 h-12 rounded-xl transition-all flex items-center justify-center hover:bg-white/10" id="btn-market" title="智能体">
+            <i class="fas fa-store text-xl"></i>
+        </button>
+        <div class="flex-1"></div>
+        <button data-page="settings" class="nav-btn w-12 h-12 rounded-xl transition-all flex items-center justify-center hover:bg-white/10" id="btn-settings" title="设置">
+            <i class="fas fa-cog text-xl"></i>
+        </button>
+    </nav>
+
+    <div class="flex-1 flex flex-col overflow-hidden relative">
+        <section id="page-chat" class="page-view active h-full flex-col">
+            <header class="h-16 bg-white/90 border-b border-blue-100 flex items-center px-8 justify-between backdrop-blur-sm">
+                <div class="flex items-center space-x-3">
+                    <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                    <div>
+                        <h2 class="font-bold text-gray-800" id="chat-title">多智能体学习空间</h2>
+                        <p class="text-xs text-gray-500" id="chat-subtitle">当前使用本地模拟服务</p>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm text-gray-500 space-x-4">
+                    <span class="bg-blue-50 px-3 py-1 rounded-full text-blue-600" id="current-model-pill">DeepSeek-V3</span>
+                    <button type="button" id="clear-chat-btn" class="text-gray-400 hover:text-blue-600 transition-colors" title="清空聊天">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div class="flex flex-col min-h-0">
+                    <div class="px-8 pt-6">
+                        <div class="flex flex-wrap gap-3" id="quick-prompts"></div>
+                    </div>
+
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-8 pt-6 space-y-6 scrollbar-thin"></div>
+
+                    <footer class="p-6 bg-white/85 border-t border-blue-100 backdrop-blur-sm">
+                        <div class="max-w-5xl mx-auto">
+                            <div class="flex items-start bg-gray-50 rounded-3xl p-3 border border-gray-200 focus-within:border-blue-400 transition-all shadow-sm">
+                                <button type="button" id="chat-attach-btn" class="p-3 text-gray-400 hover:text-blue-500 transition-colors" title="导入知识文档">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+                                <textarea id="chat-input" rows="1" placeholder="输入你的学习任务，例如：基于知识库生成 20 道测试题，并附上答案解析。" class="flex-1 bg-transparent border-none focus:ring-0 px-3 py-3 text-sm outline-none resize-none max-h-40"></textarea>
+                                <button type="button" id="send-btn" class="bg-[#005FB8] text-white px-6 py-3 rounded-2xl font-medium hover:bg-blue-700 transition-colors shadow-sm min-w-[96px]">
+                                    发送
+                                </button>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between text-xs text-gray-500 gap-4">
+                                <span id="chat-hint">Enter 发送，Shift + Enter 换行</span>
+                                <span id="chat-status-text">未连接真实后端，当前使用本地模拟回复</span>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+
+                <aside class="hidden xl:flex flex-col border-l border-blue-100 bg-white/65 backdrop-blur-sm">
+                    <div class="p-6 border-b border-blue-100">
+                        <h3 class="text-sm font-bold text-gray-700">协同状态</h3>
+                        <p class="text-xs text-gray-500 mt-1">展示模型、知识库和当前智能体状态</p>
+                    </div>
+                    <div class="p-6 space-y-4 overflow-y-auto scrollbar-thin" id="status-panel"></div>
+                </aside>
+            </div>
+        </section>
+
+        <section id="page-kb" class="page-view h-full flex-col p-8 overflow-y-auto scrollbar-thin">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">知识库中心</h1>
+                    <p class="text-sm text-gray-500 mt-2">导入学习资料后，聊天页会把这些文档元信息带给模型。</p>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="import-doc-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium shadow-sm hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-upload mr-2"></i>导入本地文档
+                    </button>
+                    <button type="button" id="clear-kb-btn" class="bg-white text-gray-600 px-5 py-2.5 rounded-xl text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors">
+                        清空知识库
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="surface-card rounded-2xl p-5">
+                    <p class="text-sm text-gray-500">文档总数</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-3" id="kb-total-count">0</p>
+                </div>
+                <div class="surface-card rounded-2xl p-5">
+                    <p class="text-sm text-gray-500">累计大小</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-3" id="kb-total-size">0 KB</p>
+                </div>
+                <div class="surface-card rounded-2xl p-5">
+                    <p class="text-sm text-gray-500">最近导入</p>
+                    <p class="text-lg font-bold text-gray-800 mt-3 truncate" id="kb-latest-doc">暂无文档</p>
+                </div>
+            </div>
+
+            <div class="surface-card rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+                <div class="relative flex-1">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input id="kb-search-input" type="text" placeholder="搜索文档名称" class="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-blue-500">
+                </div>
+                <div class="text-sm text-gray-500" id="kb-summary-text">当前暂无可用文档</div>
+            </div>
+
+            <div id="kb-empty-state" class="surface-card rounded-3xl border-dashed p-14 text-center text-gray-500">
+                <div class="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-folder-open text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-700">还没有学习资料</h3>
+                <p class="text-sm mt-2">支持导入 PDF、Word、Markdown、TXT、PPT、CSV 等常见格式。</p>
+            </div>
+
+            <div id="kb-list" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+        </section>
+
+        <section id="page-settings" class="page-view h-full flex-col p-8 overflow-y-auto scrollbar-thin">
+            <h1 class="text-2xl font-bold text-gray-800 mb-3">API 接入配置</h1>
+            <p class="text-sm text-gray-500 mb-8">如果填写 Base URL 和 API Key，聊天页会直接按 OpenAI 兼容格式请求 `chat/completions`。</p>
+
+            <div class="surface-card rounded-3xl shadow-sm p-8 max-w-3xl">
+                <form id="settings-form" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" for="current-model-input">当前模型</label>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <input id="current-model-input" type="text" readonly placeholder="保存或测试连接后自动读取当前模型" class="flex-1 bg-gray-100 border border-gray-200 rounded-xl p-3 outline-none text-gray-700">
+                            <button type="button" id="refresh-model-btn" class="px-5 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors">
+                                读取模型
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2" id="current-model-help">不再手动选择模型，页面会从当前 AI 服务自动读取。</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" for="api-key-input">API Key</label>
+                        <input id="api-key-input" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" for="base-url-input">API Base URL</label>
+                        <input id="base-url-input" type="text" placeholder="https://api.example.com/v1" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2" for="system-prompt-input">系统提示词</label>
+                        <textarea id="system-prompt-input" rows="4" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-blue-500 resize-y" placeholder="定义你的学习助手角色、回答风格和约束。"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="surface-card rounded-2xl p-4">
+                            <p class="text-sm font-bold text-gray-700">接口约定</p>
+                            <p class="text-xs text-gray-500 mt-2 leading-6">
+                                `window.AIStudyAppAPI.sendMessage(payload)`<br>
+                                `window.AIStudyAppAPI.getCurrentModel(settings)`<br>
+                                `window.AIStudyAppAPI.saveSettings(settings)`<br>
+                                `window.AIStudyAppAPI.testConnection(settings)`<br>
+                                `window.AIStudyAppAPI.importKnowledge(files)`<br>
+                                `window.AIStudyAppAPI.activateAgent(agentId)`
+                            </p>
+                        </div>
+                        <div class="surface-card rounded-2xl p-4">
+                            <p class="text-sm font-bold text-gray-700">当前状态</p>
+                            <p class="text-xs text-gray-500 mt-2 leading-6" id="settings-runtime-status">未检测到外部实现，已回退到内置适配器。</p>
+                        </div>
+                    </div>
+                    <div class="pt-4 flex flex-col sm:flex-row gap-4">
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold hover:bg-blue-700 transition-colors">保存配置</button>
+                        <button type="button" id="test-connection-btn" class="px-6 py-3 border border-gray-200 rounded-2xl font-bold text-gray-600 hover:bg-gray-50 transition-colors">测试连接</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section id="page-market" class="page-view h-full flex-col p-8 overflow-y-auto scrollbar-thin">
+            <div class="flex items-end justify-between gap-4 mb-8">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">智能体市场</h1>
+                    <p class="text-sm text-gray-500 mt-2">可切换不同学习智能体，聊天页会联动当前角色。</p>
+                </div>
+                <div class="text-sm text-gray-500">
+                    当前激活：<span class="font-bold text-blue-600" id="active-agent-label">默认学习助手</span>
+                </div>
+            </div>
+            <div id="agent-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+        </section>
+    </div>
+
+    <input id="doc-file-input" type="file" class="hidden" multiple accept=".pdf,.doc,.docx,.txt,.md,.ppt,.pptx,.xls,.xlsx,.csv">
+    <div id="toast" class="fixed right-6 bottom-6 translate-y-4 opacity-0 pointer-events-none transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl text-sm z-[100]"></div>
+
+    <script>
+        const STORAGE_KEY = "ai-study-app-state";
+
+        const defaultAgents = [
+            {
+                id: "general",
+                name: "默认学习助手",
+                icon: "fa-brain",
+                accent: "blue",
+                title: "综合学习规划",
+                description: "适合日常问答、知识梳理、计划拆解和学习总结。",
+                specialty: "擅长把模糊任务拆成清晰步骤。"
+            },
+            {
+                id: "politics",
+                name: "考研政治导师",
+                icon: "fa-graduation-cap",
+                accent: "orange",
+                title: "政治知识梳理",
+                description: "适合主观题框架拆解、观点提炼和记忆提纲整理。",
+                specialty: "擅长总结答题模板和论述结构。"
+            },
+            {
+                id: "coding",
+                name: "代码学习助教",
+                icon: "fa-code",
+                accent: "emerald",
+                title: "编程训练",
+                description: "适合代码解释、错误定位、练习设计和学习路线规划。",
+                specialty: "擅长定位错误原因并给出改写建议。"
+            }
+        ];
+
+        const quickPrompts = [
+            "基于知识库生成今天的复习计划",
+            "提炼最近资料中的 10 个核心概念",
+            "从知识库生成一组模拟测试题",
+            "把复杂内容总结成背诵提纲"
+        ];
+
+        const defaultMessages = [
+            {
+                id: createId(),
+                role: "assistant",
+                content: "你好，我是你的学习助手。你可以先导入本地资料，然后让我基于知识库生成计划、总结、测验题或答疑。",
+                time: createTimeStamp(),
+                source: "mock"
+            }
+        ];
+
+        const state = loadState();
+
+        const elements = {
+            navButtons: document.querySelectorAll(".nav-btn"),
+            pageViews: document.querySelectorAll(".page-view"),
+            chatMessages: document.getElementById("chat-messages"),
+            chatInput: document.getElementById("chat-input"),
+            sendBtn: document.getElementById("send-btn"),
+            chatStatusText: document.getElementById("chat-status-text"),
+            quickPrompts: document.getElementById("quick-prompts"),
+            statusPanel: document.getElementById("status-panel"),
+            currentModelPill: document.getElementById("current-model-pill"),
+            chatTitle: document.getElementById("chat-title"),
+            chatSubtitle: document.getElementById("chat-subtitle"),
+            clearChatBtn: document.getElementById("clear-chat-btn"),
+            chatAttachBtn: document.getElementById("chat-attach-btn"),
+            docFileInput: document.getElementById("doc-file-input"),
+            importDocBtn: document.getElementById("import-doc-btn"),
+            clearKbBtn: document.getElementById("clear-kb-btn"),
+            kbList: document.getElementById("kb-list"),
+            kbEmptyState: document.getElementById("kb-empty-state"),
+            kbSearchInput: document.getElementById("kb-search-input"),
+            kbTotalCount: document.getElementById("kb-total-count"),
+            kbTotalSize: document.getElementById("kb-total-size"),
+            kbLatestDoc: document.getElementById("kb-latest-doc"),
+            kbSummaryText: document.getElementById("kb-summary-text"),
+            agentGrid: document.getElementById("agent-grid"),
+            activeAgentLabel: document.getElementById("active-agent-label"),
+            settingsForm: document.getElementById("settings-form"),
+            currentModelInput: document.getElementById("current-model-input"),
+            refreshModelBtn: document.getElementById("refresh-model-btn"),
+            currentModelHelp: document.getElementById("current-model-help"),
+            apiKeyInput: document.getElementById("api-key-input"),
+            baseUrlInput: document.getElementById("base-url-input"),
+            systemPromptInput: document.getElementById("system-prompt-input"),
+            testConnectionBtn: document.getElementById("test-connection-btn"),
+            settingsRuntimeStatus: document.getElementById("settings-runtime-status"),
+            toast: document.getElementById("toast")
+        };
+
+        const AppAPI = {
+            async sendMessage(payload) {
+                if (window.AIStudyAppAPI && typeof window.AIStudyAppAPI.sendMessage === "function") {
+                    return window.AIStudyAppAPI.sendMessage(payload);
+                }
+                return builtInAdapter.sendMessage(payload);
+            },
+            async getCurrentModel(settings) {
+                if (window.AIStudyAppAPI && typeof window.AIStudyAppAPI.getCurrentModel === "function") {
+                    return window.AIStudyAppAPI.getCurrentModel(settings);
+                }
+                return builtInAdapter.getCurrentModel(settings);
+            },
+            async saveSettings(settings) {
+                if (window.AIStudyAppAPI && typeof window.AIStudyAppAPI.saveSettings === "function") {
+                    return window.AIStudyAppAPI.saveSettings(settings);
+                }
+                return builtInAdapter.saveSettings(settings);
+            },
+            async testConnection(settings) {
+                if (window.AIStudyAppAPI && typeof window.AIStudyAppAPI.testConnection === "function") {
+                    return window.AIStudyAppAPI.testConnection(settings);
+                }
+                return builtInAdapter.testConnection(settings);
+            },
+            async importKnowledge(files) {
+                if (window.AIStudyAppAPI && typeof window.AIStudyAppAPI.importKnowledge === "function") {
+                    return window.AIStudyAppAPI.importKnowledge(files);
+                }
+                return builtInAdapter.importKnowledge(files);
+            },
+            async activateAgent(agentId) {
+                if (window.AIStudyAppAPI && typeof window.AIStudyAppAPI.activateAgent === "function") {
+                    return window.AIStudyAppAPI.activateAgent(agentId);
+                }
+                return builtInAdapter.activateAgent(agentId);
+            }
+        };
+
+        const builtInAdapter = {
+            async sendMessage(payload) {
+                if (!payload.settings.model && hasDirectApiConfig(payload.settings)) {
+                    const modelResult = await builtInAdapter.getCurrentModel(payload.settings);
+                    payload.settings.model = modelResult.model || "";
+                }
+                if (hasDirectApiConfig(payload.settings) && !payload.settings.model) {
+                    throw new Error("未能自动识别当前模型，请先测试连接或手动读取模型。");
+                }
+                if (hasDirectApiConfig(payload.settings)) {
+                    return requestDirectChat(payload);
+                }
+                return mockSendMessage(payload);
+            },
+
+            async getCurrentModel(settings) {
+                if (!hasDirectApiConfig(settings)) {
+                    return {
+                        success: false,
+                        model: "",
+                        message: "请先填写 API Base URL 和 API Key。"
+                    };
+                }
+
+                const url = buildApiUrl(settings.baseUrl, "models");
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${settings.apiKey}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const model = resolveCurrentModelFromList(data, settings.model);
+
+                if (!model) {
+                    return {
+                        success: false,
+                        model: "",
+                        message: "未从服务返回结果中识别到可用模型。"
+                    };
+                }
+
+                return {
+                    success: true,
+                    model,
+                    message: `已读取当前模型：${model}`
+                };
+            },
+
+            async saveSettings(settings) {
+                await wait(150);
+                return {
+                    success: true,
+                    message: settings.baseUrl
+                        ? "配置已保存，聊天页将优先直连你的 API 服务。"
+                        : "配置已保存在本地浏览器存储中。"
+                };
+            },
+
+            async testConnection(settings) {
+                if (!hasDirectApiConfig(settings)) {
+                    return {
+                        success: false,
+                        message: "请先填写 API Base URL 和 API Key。"
+                    };
+                }
+
+                try {
+                    const url = buildApiUrl(settings.baseUrl, "models");
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: {
+                            "Authorization": `Bearer ${settings.apiKey}`,
+                            "Content-Type": "application/json"
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    return {
+                        success: true,
+                        message: `已连接 ${normalizeBaseUrl(settings.baseUrl)}`
+                    };
+                } catch (error) {
+                    return {
+                        success: false,
+                        message: `连接失败：${error.message || "未知错误"}`
+                    };
+                }
+            },
+
+            async importKnowledge(files) {
+                await wait(200);
+                return files.map(file => ({
+                    id: createId(),
+                    name: file.name,
+                    size: file.size,
+                    type: getFileType(file.name),
+                    addedAt: new Date().toISOString(),
+                    status: "已导入",
+                    chunks: estimateChunks(file.size)
+                }));
+            },
+
+            async activateAgent(agentId) {
+                await wait(80);
+                return {
+                    success: true,
+                    agentId
+                };
+            }
+        };
+
+        init();
+
+        function init() {
+            bindEvents();
+            hydrateSettingsForm();
+            renderQuickPrompts();
+            renderAll();
+            updateRuntimeStatus();
+            autoResizeTextarea();
+
+            window.AIStudyApp = {
+                state,
+                AppAPI
+            };
+        }
+
+        function bindEvents() {
+            elements.navButtons.forEach(button => {
+                button.addEventListener("click", () => showPage(button.dataset.page));
+            });
+
+            elements.sendBtn.addEventListener("click", handleSendMessage);
+            elements.chatInput.addEventListener("input", autoResizeTextarea);
+            elements.chatInput.addEventListener("keydown", event => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSendMessage();
+                }
+            });
+
+            elements.clearChatBtn.addEventListener("click", () => {
+                state.messages = [...defaultMessages];
+                persistState();
+                renderChatMessages();
+                showToast("聊天记录已清空");
+            });
+
+            elements.importDocBtn.addEventListener("click", () => elements.docFileInput.click());
+            elements.chatAttachBtn.addEventListener("click", () => elements.docFileInput.click());
+            elements.docFileInput.addEventListener("change", handleKnowledgeImport);
+            elements.clearKbBtn.addEventListener("click", clearKnowledgeBase);
+            elements.kbSearchInput.addEventListener("input", renderKnowledgeBase);
+
+            elements.settingsForm.addEventListener("submit", handleSaveSettings);
+            elements.testConnectionBtn.addEventListener("click", handleTestConnection);
+            elements.refreshModelBtn.addEventListener("click", handleRefreshModel);
+        }
+
+        function createDefaultState() {
+            return {
+                currentPage: "chat",
+                messages: [...defaultMessages],
+                kbFiles: [],
+                settings: {
+                    model: "",
+                    apiKey: "",
+                    baseUrl: "",
+                    systemPrompt: "你是一个注重结构化表达的学习助手，需要先总结再展开。"
+                },
+                agents: [...defaultAgents],
+                activeAgentId: "general",
+                ui: {
+                    kbSearch: ""
+                },
+                isSending: false
+            };
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (!saved) {
+                return createDefaultState();
+            }
+
+            try {
+                const parsed = JSON.parse(saved);
+                const defaults = createDefaultState();
+                return {
+                    ...defaults,
+                    currentPage: parsed.currentPage || defaults.currentPage,
+                    messages: Array.isArray(parsed.messages) && parsed.messages.length ? parsed.messages : defaults.messages,
+                    kbFiles: Array.isArray(parsed.kbFiles) ? parsed.kbFiles : defaults.kbFiles,
+                    settings: {
+                        ...defaults.settings,
+                        ...(parsed.settings || {})
+                    },
+                    agents: Array.isArray(parsed.agents) && parsed.agents.length ? parsed.agents : defaults.agents,
+                    activeAgentId: parsed.activeAgentId || defaults.activeAgentId,
+                    ui: {
+                        ...defaults.ui,
+                        ...(parsed.ui || {})
+                    },
+                    isSending: false
+                };
+            } catch (error) {
+                console.error("状态恢复失败:", error);
+                return createDefaultState();
+            }
+        }
+
+        function persistState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                currentPage: state.currentPage,
+                messages: state.messages,
+                kbFiles: state.kbFiles,
+                settings: state.settings,
+                agents: state.agents,
+                activeAgentId: state.activeAgentId,
+                ui: state.ui
+            }));
+        }
+
+        function renderAll() {
+            showPage(state.currentPage);
+            renderChatMessages();
+            renderKnowledgeBase();
+            renderAgents();
+            renderStatusPanel();
+            syncHeader();
+            updateComposerState();
+        }
+
+        function showPage(pageId) {
+            state.currentPage = pageId;
+            elements.pageViews.forEach(page => page.classList.remove("active"));
+            elements.navButtons.forEach(button => {
+                button.classList.remove("nav-active");
+                button.classList.add("hover:bg-white/10");
+            });
+
+            document.getElementById(`page-${pageId}`).classList.add("active");
+            const activeButton = document.getElementById(`btn-${pageId}`);
+            activeButton.classList.add("nav-active");
+            activeButton.classList.remove("hover:bg-white/10");
+
+            persistState();
+        }
+
+        function renderQuickPrompts() {
+            elements.quickPrompts.innerHTML = quickPrompts.map(prompt => `
+                <button type="button" class="quick-prompt px-4 py-2 rounded-full bg-white border border-blue-100 text-sm text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                    ${escapeHtml(prompt)}
+                </button>
+            `).join("");
+
+            document.querySelectorAll(".quick-prompt").forEach((button, index) => {
+                button.addEventListener("click", () => {
+                    elements.chatInput.value = quickPrompts[index];
+                    autoResizeTextarea();
+                    elements.chatInput.focus();
+                });
+            });
+        }
+
+        function renderChatMessages() {
+            const activeAgent = getActiveAgent();
+            const typingCard = state.isSending ? `
+                <div class="flex justify-start">
+                    <div class="flex items-start gap-4 max-w-4xl">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">A</div>
+                        <div class="max-w-3xl">
+                            <div class="chat-bubble-assistant p-4 shadow-sm text-gray-700">
+                                <div class="flex items-center gap-2">
+                                    <span class="typing-dot"></span>
+                                    <span class="typing-dot"></span>
+                                    <span class="typing-dot"></span>
+                                    <span class="text-xs text-gray-400 ml-2">${escapeHtml(activeAgent.name)} 正在整理答案</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : "";
+
+            elements.chatMessages.innerHTML = state.messages.map(message => {
+                const isUser = message.role === "user";
+                const bubbleClass = isUser ? "chat-bubble-user" : "chat-bubble-assistant";
+                const alignClass = isUser ? "justify-end" : "justify-start";
+                const avatar = isUser
+                    ? '<div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold">我</div>'
+                    : '<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">A</div>';
+
+                return `
+                    <div class="flex ${alignClass}">
+                        <div class="flex items-start gap-4 max-w-4xl ${isUser ? "flex-row-reverse" : ""}">
+                            ${avatar}
+                            <div class="max-w-3xl">
+                                <div class="${bubbleClass} p-4 shadow-sm leading-7 text-sm whitespace-pre-wrap break-words">${escapeHtml(message.content)}</div>
+                                <div class="mt-2 text-xs text-gray-400 ${isUser ? "text-right" : ""}">
+                                    ${escapeHtml(message.time || "")}${message.source ? ` · ${escapeHtml(message.source)}` : ""}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join("") + typingCard;
+
+            requestAnimationFrame(() => {
+                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+            });
+        }
+
+        function renderKnowledgeBase() {
+            state.ui.kbSearch = elements.kbSearchInput.value.trim();
+            const query = state.ui.kbSearch.toLowerCase();
+            const filteredFiles = state.kbFiles.filter(file => file.name.toLowerCase().includes(query));
+
+            elements.kbTotalCount.textContent = String(state.kbFiles.length);
+            elements.kbTotalSize.textContent = formatSize(state.kbFiles.reduce((sum, file) => sum + Number(file.size || 0), 0));
+            elements.kbLatestDoc.textContent = state.kbFiles[0]?.name || "暂无文档";
+            elements.kbSummaryText.textContent = filteredFiles.length
+                ? `共找到 ${filteredFiles.length} 份文档`
+                : (query ? "没有匹配的文档" : "当前暂无可用文档");
+
+            elements.kbEmptyState.classList.toggle("hidden", state.kbFiles.length > 0);
+            elements.kbList.innerHTML = filteredFiles.map(file => `
+                <div class="surface-card p-5 rounded-3xl shadow-sm">
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-2xl ${getFileBadgeClass(file.type)} flex items-center justify-center">
+                            <i class="${getFileIcon(file.type)} text-xl"></i>
+                        </div>
+                        <button type="button" class="delete-kb-btn text-gray-400 hover:text-red-500 transition-colors" data-id="${file.id}" title="删除文档">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                    <h3 class="font-bold text-gray-800 break-all">${escapeHtml(file.name)}</h3>
+                    <p class="text-xs text-gray-400 mt-2">大小: ${formatSize(file.size)} | 导入时间: ${formatDate(file.addedAt)}</p>
+                    <div class="mt-4 flex items-center justify-between text-xs">
+                        <span class="bg-green-100 text-green-600 px-2.5 py-1 rounded-full">${escapeHtml(file.status || "已导入")}</span>
+                        <span class="text-gray-500">${file.chunks || 0} 个片段</span>
+                    </div>
+                </div>
+            `).join("");
+
+            document.querySelectorAll(".delete-kb-btn").forEach(button => {
+                button.addEventListener("click", () => removeKnowledgeFile(button.dataset.id));
+            });
+
+            persistState();
+            renderStatusPanel();
+            syncHeader();
+        }
+
+        function renderAgents() {
+            const colorMap = {
+                blue: "bg-blue-100 text-blue-600",
+                orange: "bg-orange-100 text-orange-600",
+                emerald: "bg-emerald-100 text-emerald-600"
+            };
+
+            elements.agentGrid.innerHTML = state.agents.map(agent => {
+                const active = agent.id === state.activeAgentId;
+                return `
+                    <div class="surface-card rounded-3xl p-6 shadow-sm ${active ? "ring-2 ring-blue-400" : ""}">
+                        <div class="flex items-center justify-between mb-5">
+                            <div class="w-14 h-14 rounded-2xl flex items-center justify-center ${colorMap[agent.accent] || colorMap.blue}">
+                                <i class="fas ${agent.icon} text-xl"></i>
+                            </div>
+                            <span class="text-xs ${active ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"} px-3 py-1 rounded-full">
+                                ${active ? "当前使用中" : "可切换"}
+                            </span>
+                        </div>
+                        <h4 class="font-bold text-lg text-gray-800">${escapeHtml(agent.name)}</h4>
+                        <p class="text-sm text-gray-500 mt-1">${escapeHtml(agent.title)}</p>
+                        <p class="text-sm text-gray-600 mt-4 leading-6">${escapeHtml(agent.description)}</p>
+                        <p class="text-xs text-gray-400 mt-3">${escapeHtml(agent.specialty)}</p>
+                        <button type="button" class="agent-activate-btn mt-6 w-full ${active ? "bg-slate-900 text-white" : "bg-white text-blue-600 border border-blue-200"} py-3 rounded-2xl font-medium hover:opacity-90 transition-opacity" data-id="${agent.id}">
+                            ${active ? "已激活" : "切换到该智能体"}
+                        </button>
+                    </div>
+                `;
+            }).join("");
+
+            document.querySelectorAll(".agent-activate-btn").forEach(button => {
+                button.addEventListener("click", () => handleActivateAgent(button.dataset.id));
+            });
+        }
+
+        function renderStatusPanel() {
+            const activeAgent = getActiveAgent();
+            const hasExternalApi = Boolean(window.AIStudyAppAPI);
+            const cards = [
+                {
+                    title: "知识库状态",
+                    content: state.kbFiles.length
+                        ? `已接入 ${state.kbFiles.length} 份文档，最近导入：${state.kbFiles[0].name}`
+                        : "尚未导入文档，聊天将只基于通用学习策略回答。",
+                    icon: "fa-book-open",
+                    color: "bg-blue-50 text-blue-600"
+                },
+                {
+                    title: "当前模型",
+                    content: `${state.settings.model}${state.settings.baseUrl ? ` · ${normalizeBaseUrl(state.settings.baseUrl)}` : " · 未配置直连地址"}`,
+                    icon: "fa-microchip",
+                    color: "bg-emerald-50 text-emerald-600"
+                },
+                {
+                    title: "工作智能体",
+                    content: `${activeAgent.name} 已激活。${activeAgent.specialty}`,
+                    icon: "fa-robot",
+                    color: "bg-orange-50 text-orange-600"
+                },
+                {
+                    title: "接口接入",
+                    content: hasExternalApi
+                        ? "检测到 window.AIStudyAppAPI，页面将优先调用外部实现。"
+                        : "未检测到外部对象，当前使用内置适配器。",
+                    icon: "fa-plug",
+                    color: "bg-slate-100 text-slate-600"
+                }
+            ];
+
+            elements.statusPanel.innerHTML = cards.map(card => `
+                <div class="surface-card rounded-2xl p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center ${card.color}">
+                            <i class="fas ${card.icon}"></i>
+                        </div>
+                        <h4 class="font-bold text-sm text-gray-800">${escapeHtml(card.title)}</h4>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-6">${escapeHtml(card.content)}</p>
+                </div>
+            `).join("");
+        }
+
+        function hydrateSettingsForm() {
+            elements.currentModelInput.value = state.settings.model || "";
+            elements.apiKeyInput.value = state.settings.apiKey;
+            elements.baseUrlInput.value = state.settings.baseUrl;
+            elements.systemPromptInput.value = state.settings.systemPrompt;
+            syncModelHelp();
+        }
+
+        function syncHeader() {
+            const activeAgent = getActiveAgent();
+            elements.currentModelPill.textContent = state.settings.model || "自动识别";
+            elements.activeAgentLabel.textContent = activeAgent.name;
+            elements.chatTitle.textContent = `${activeAgent.name} · 学习空间`;
+            elements.chatSubtitle.textContent = hasDirectApiConfig(state.settings)
+                ? `已连接 ${normalizeBaseUrl(state.settings.baseUrl)}`
+                : "当前使用本地模拟服务";
+            elements.chatStatusText.textContent = hasDirectApiConfig(state.settings)
+                ? "已配置直连 API，发送消息会请求真实模型"
+                : "未连接真实后端，当前使用本地模拟回复";
+        }
+
+        function updateComposerState() {
+            const disabled = state.isSending;
+            elements.chatInput.disabled = disabled;
+            elements.sendBtn.disabled = disabled;
+            elements.sendBtn.classList.toggle("opacity-70", disabled);
+            elements.sendBtn.classList.toggle("cursor-not-allowed", disabled);
+            elements.sendBtn.innerHTML = disabled
+                ? '<i class="fas fa-spinner fa-spin mr-2"></i>发送中'
+                : "发送";
+        }
+
+        async function handleSendMessage() {
+            const message = elements.chatInput.value.trim();
+            if (!message || state.isSending) {
+                return;
+            }
+
+            const userMessage = {
+                id: createId(),
+                role: "user",
+                content: message,
+                time: createTimeStamp(),
+                source: "local"
+            };
+
+            state.messages.push(userMessage);
+            state.isSending = true;
+            elements.chatInput.value = "";
+            autoResizeTextarea();
+            updateComposerState();
+            renderChatMessages();
+
+            try {
+                const response = await AppAPI.sendMessage({
+                    message,
+                    history: state.messages.map(({ role, content }) => ({ role, content })),
+                    settings: { ...state.settings },
+                    knowledgeBase: [...state.kbFiles],
+                    agent: getActiveAgent()
+                });
+
+                state.messages.push({
+                    id: createId(),
+                    role: response.role || "assistant",
+                    content: response.content || "接口未返回内容。",
+                    time: response.time || createTimeStamp(),
+                    source: response.source || "api"
+                });
+            } catch (error) {
+                state.messages.push({
+                    id: createId(),
+                    role: "assistant",
+                    content: `发送失败：${error.message || "未知错误"}`,
+                    time: createTimeStamp(),
+                    source: "error"
+                });
+            } finally {
+                state.isSending = false;
+                persistState();
+                updateComposerState();
+                renderChatMessages();
+            }
+        }
+
+        async function handleKnowledgeImport(event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) {
+                return;
+            }
+
+            try {
+                const imported = await AppAPI.importKnowledge(files);
+                state.kbFiles = [...imported, ...state.kbFiles];
+                persistState();
+                renderKnowledgeBase();
+                showToast(`已导入 ${imported.length} 份文档`);
+            } catch (error) {
+                showToast(`导入失败：${error.message || "未知错误"}`);
+            } finally {
+                elements.docFileInput.value = "";
+            }
+        }
+
+        function removeKnowledgeFile(fileId) {
+            state.kbFiles = state.kbFiles.filter(file => file.id !== fileId);
+            persistState();
+            renderKnowledgeBase();
+            showToast("文档已删除");
+        }
+
+        function clearKnowledgeBase() {
+            state.kbFiles = [];
+            persistState();
+            renderKnowledgeBase();
+            showToast("知识库已清空");
+        }
+
+        async function handleSaveSettings(event) {
+            event.preventDefault();
+            state.settings = collectSettingsFromForm();
+
+            try {
+                await tryAutoRefreshModel({ silent: true });
+                const result = await AppAPI.saveSettings(state.settings);
+                persistState();
+                syncHeader();
+                renderStatusPanel();
+                updateRuntimeStatus();
+                hydrateSettingsForm();
+                showToast(result.message || "配置已保存");
+            } catch (error) {
+                showToast(`保存失败：${error.message || "未知错误"}`);
+            }
+        }
+
+        async function handleTestConnection() {
+            const settings = collectSettingsFromForm();
+            elements.testConnectionBtn.disabled = true;
+            elements.testConnectionBtn.textContent = "测试中...";
+
+            try {
+                const result = await AppAPI.testConnection(settings);
+                if (result.success) {
+                    state.settings = settings;
+                    await tryAutoRefreshModel({ silent: true });
+                    persistState();
+                    syncHeader();
+                    renderStatusPanel();
+                    hydrateSettingsForm();
+                }
+                showToast(result.message || (result.success ? "连接成功" : "连接失败"));
+            } catch (error) {
+                showToast(`测试失败：${error.message || "未知错误"}`);
+            } finally {
+                elements.testConnectionBtn.disabled = false;
+                elements.testConnectionBtn.textContent = "测试连接";
+            }
+        }
+
+        async function handleRefreshModel() {
+            await tryAutoRefreshModel({ silent: false });
+        }
+
+        async function handleActivateAgent(agentId) {
+            if (agentId === state.activeAgentId) {
+                return;
+            }
+
+            try {
+                await AppAPI.activateAgent(agentId);
+                state.activeAgentId = agentId;
+                persistState();
+                renderAgents();
+                renderStatusPanel();
+                syncHeader();
+                showToast(`已切换到 ${getActiveAgent().name}`);
+            } catch (error) {
+                showToast(`切换失败：${error.message || "未知错误"}`);
+            }
+        }
+
+        function collectSettingsFromForm() {
+            return {
+                model: elements.currentModelInput.value.trim(),
+                apiKey: elements.apiKeyInput.value.trim(),
+                baseUrl: elements.baseUrlInput.value.trim(),
+                systemPrompt: elements.systemPromptInput.value.trim()
+            };
+        }
+
+        async function tryAutoRefreshModel({ silent }) {
+            const settings = {
+                ...state.settings,
+                apiKey: elements.apiKeyInput.value.trim(),
+                baseUrl: elements.baseUrlInput.value.trim(),
+                systemPrompt: elements.systemPromptInput.value.trim()
+            };
+
+            if (!hasDirectApiConfig(settings)) {
+                state.settings.model = "";
+                hydrateSettingsForm();
+                syncHeader();
+                renderStatusPanel();
+                if (!silent) {
+                    showToast("请先填写 API Base URL 和 API Key");
+                }
+                return false;
+            }
+
+            const originalText = elements.refreshModelBtn.textContent;
+            elements.refreshModelBtn.disabled = true;
+            elements.refreshModelBtn.textContent = "读取中...";
+
+            try {
+                const result = await AppAPI.getCurrentModel(settings);
+                state.settings = {
+                    ...state.settings,
+                    ...settings,
+                    model: result.model || ""
+                };
+                persistState();
+                hydrateSettingsForm();
+                syncHeader();
+                renderStatusPanel();
+                updateRuntimeStatus();
+                if (!silent) {
+                    showToast(result.message || "当前模型已更新");
+                }
+                return Boolean(result.model);
+            } catch (error) {
+                state.settings = {
+                    ...state.settings,
+                    ...settings,
+                    model: ""
+                };
+                persistState();
+                hydrateSettingsForm();
+                syncHeader();
+                renderStatusPanel();
+                if (!silent) {
+                    showToast(`读取模型失败：${error.message || "未知错误"}`);
+                }
+                return false;
+            } finally {
+                elements.refreshModelBtn.disabled = false;
+                elements.refreshModelBtn.textContent = originalText;
+            }
+        }
+
+        function updateRuntimeStatus() {
+            elements.settingsRuntimeStatus.textContent = window.AIStudyAppAPI
+                ? "检测到 window.AIStudyAppAPI，页面将优先调用外部实现和模型读取接口。"
+                : "未检测到外部实现，当前使用内置适配器；填写 API 地址和 Key 后会自动读取模型。";
+        }
+
+        function getActiveAgent() {
+            return state.agents.find(agent => agent.id === state.activeAgentId) || state.agents[0];
+        }
+
+        async function requestDirectChat(payload) {
+            const url = buildApiUrl(payload.settings.baseUrl, "chat/completions");
+            const messages = buildApiMessages(payload);
+            const body = {
+                model: payload.settings.model,
+                messages,
+                temperature: 0.7
+            };
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${payload.settings.apiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status} ${errorText}`.trim());
+            }
+
+            const data = await response.json();
+            const content = extractAssistantContent(data);
+            return {
+                role: "assistant",
+                content: content || "模型未返回可显示内容。",
+                time: createTimeStamp(),
+                source: "api"
+            };
+        }
+
+        async function mockSendMessage(payload) {
+            await wait(700);
+            const knowledgeNames = payload.knowledgeBase.slice(0, 3).map(file => file.name);
+            const lines = [
+                `已收到你的任务：${payload.message}`,
+                `${payload.agent.name} 已开始处理。`,
+                knowledgeNames.length
+                    ? `本次参考知识库：${knowledgeNames.join("、")}。`
+                    : "当前没有可用知识库文档，因此回复基于通用学习建议生成。",
+                "如果你想接入真实模型，在设置页填写 API Base URL 和 API Key 即可直连。"
+            ];
+
+            if (payload.settings.systemPrompt) {
+                lines.push("当前已检测到系统提示词配置，真实请求时会一起发送给模型。");
+            }
+
+            return {
+                role: "assistant",
+                content: lines.join("\n\n"),
+                time: createTimeStamp(),
+                source: "mock"
+            };
+        }
+
+        function buildApiMessages(payload) {
+            const messages = [];
+            const systemBlocks = [];
+
+            if (payload.settings.systemPrompt) {
+                systemBlocks.push(payload.settings.systemPrompt);
+            }
+
+            systemBlocks.push(`当前智能体：${payload.agent.name}。定位：${payload.agent.title}。特长：${payload.agent.specialty}`);
+
+            if (payload.knowledgeBase.length) {
+                const summary = payload.knowledgeBase
+                    .slice(0, 10)
+                    .map((file, index) => `${index + 1}. ${file.name} (${formatSize(file.size)})`)
+                    .join("\n");
+                systemBlocks.push(`当前知识库文档如下，请优先参考这些资料回答：\n${summary}`);
+            }
+
+            messages.push({
+                role: "system",
+                content: systemBlocks.join("\n\n")
+            });
+
+            payload.history.forEach(item => {
+                messages.push({
+                    role: item.role,
+                    content: item.content
+                });
+            });
+
+            return messages;
+        }
+
+        function extractAssistantContent(data) {
+            const choice = data?.choices?.[0];
+            const content = choice?.message?.content;
+            if (typeof content === "string") {
+                return content;
+            }
+
+            if (Array.isArray(content)) {
+                return content
+                    .map(item => item?.text || item?.content || "")
+                    .filter(Boolean)
+                    .join("\n");
+            }
+
+            if (typeof data?.output_text === "string") {
+                return data.output_text;
+            }
+
+            return "";
+        }
+
+        function hasDirectApiConfig(settings) {
+            return Boolean(settings?.baseUrl && settings?.apiKey);
+        }
+
+        function resolveCurrentModelFromList(data, preferredModel) {
+            const models = Array.isArray(data?.data) ? data.data : [];
+            if (!models.length) {
+                return preferredModel || "";
+            }
+
+            const normalizedPreferred = String(preferredModel || "").trim().toLowerCase();
+            if (normalizedPreferred) {
+                const matched = models.find(model => String(model?.id || "").toLowerCase() === normalizedPreferred);
+                if (matched?.id) {
+                    return matched.id;
+                }
+            }
+
+            const firstModel = models.find(model => typeof model?.id === "string" && model.id.trim());
+            return firstModel?.id || "";
+        }
+
+        function syncModelHelp() {
+            elements.currentModelHelp.textContent = state.settings.model
+                ? `当前已自动识别模型：${state.settings.model}`
+                : "不再手动选择模型，页面会从当前 AI 服务自动读取。";
+        }
+
+        function normalizeBaseUrl(baseUrl) {
+            return String(baseUrl || "").replace(/\/+$/, "");
+        }
+
+        function buildApiUrl(baseUrl, path) {
+            return `${normalizeBaseUrl(baseUrl)}/${path.replace(/^\/+/, "")}`;
+        }
+
+        function autoResizeTextarea() {
+            elements.chatInput.style.height = "auto";
+            elements.chatInput.style.height = `${Math.min(elements.chatInput.scrollHeight, 160)}px`;
+        }
+
+        function formatSize(bytes) {
+            const size = Number(bytes) || 0;
+            if (size < 1024) {
+                return `${size} B`;
+            }
+            if (size < 1024 * 1024) {
+                return `${(size / 1024).toFixed(1)} KB`;
+            }
+            return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function formatDate(isoString) {
+            const date = isoString ? new Date(isoString) : new Date();
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+        }
+
+        function createTimeStamp() {
+            const now = new Date();
+            return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        }
+
+        function pad(value) {
+            return String(value).padStart(2, "0");
+        }
+
+        function createId() {
+            return `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function estimateChunks(size) {
+            const base = Math.max(1, Math.round((Number(size) || 1000) / 18000));
+            return Math.min(base, 99);
+        }
+
+        function getFileType(fileName) {
+            const ext = fileName.split(".").pop()?.toLowerCase() || "";
+            if (["pdf"].includes(ext)) {
+                return "pdf";
+            }
+            if (["doc", "docx"].includes(ext)) {
+                return "doc";
+            }
+            if (["ppt", "pptx"].includes(ext)) {
+                return "ppt";
+            }
+            if (["xls", "xlsx", "csv"].includes(ext)) {
+                return "sheet";
+            }
+            if (["md", "txt"].includes(ext)) {
+                return "text";
+            }
+            return "file";
+        }
+
+        function getFileIcon(type) {
+            const iconMap = {
+                pdf: "fas fa-file-pdf text-red-500",
+                doc: "fas fa-file-word text-blue-500",
+                ppt: "fas fa-file-powerpoint text-orange-500",
+                sheet: "fas fa-file-excel text-emerald-500",
+                text: "fas fa-file-lines text-slate-500",
+                file: "fas fa-file text-gray-500"
+            };
+            return iconMap[type] || iconMap.file;
+        }
+
+        function getFileBadgeClass(type) {
+            const classMap = {
+                pdf: "bg-red-50 text-red-500",
+                doc: "bg-blue-50 text-blue-500",
+                ppt: "bg-orange-50 text-orange-500",
+                sheet: "bg-emerald-50 text-emerald-500",
+                text: "bg-slate-100 text-slate-500",
+                file: "bg-gray-100 text-gray-500"
+            };
+            return classMap[type] || classMap.file;
+        }
+
+        function showToast(message) {
+            elements.toast.textContent = message;
+            elements.toast.classList.remove("translate-y-4", "opacity-0");
+            elements.toast.classList.add("translate-y-0", "opacity-100");
+
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => {
+                elements.toast.classList.add("translate-y-4", "opacity-0");
+                elements.toast.classList.remove("translate-y-0", "opacity-100");
+            }, 2200);
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+    </script>
+</body>
+</html>
