@@ -1,0 +1,49 @@
+{
+  "name": "ai-learning-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "基于大模型的本地学习多智能体桌面应用",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=18.18.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "setup": "npm ci",
+    "check:env": "node scripts/check-env.mjs",
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:server\" \"npm:dev:electron\"",
+    "dev:renderer": "vite --config vite.config.js",
+    "dev:server": "node server/src/index.js",
+    "dev:electron": "wait-on tcp:5173 tcp:3001 && electron .",
+    "build": "vite build --config vite.config.js",
+    "preview": "vite preview --config vite.config.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "dompurify": "^3.4.5",
+    "dotenv": "^16.5.0",
+    "echarts": "^6.1.0",
+    "element-plus": "^2.10.1",
+    "express": "^4.21.2",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.47",
+    "mammoth": "^1.8.0",
+    "marked": "^18.0.4",
+    "pdf-parse": "^1.1.1",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.3",
+    "concurrently": "^9.1.2",
+    "electron": "^35.2.1",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
+  }
+}
